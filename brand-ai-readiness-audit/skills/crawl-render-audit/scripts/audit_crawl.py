@@ -102,7 +102,8 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
 
 def has_structured_state(content: str) -> bool:
     """Verifies that unparsed script content contains genuine structured key-value state, not arbitrary noise."""
-    return ("{" in content or "[" in content) and bool(re.search(r'["\']?\w{2,}["\']?\s*:', content))
+    has_balanced = ("{" in content and "}" in content) or ("[" in content and "]" in content)
+    return has_balanced and bool(re.search(r'["\']?\w{2,}["\']?\s*:', content))
 
 def detect_data_island(html: str) -> tuple:
     """

@@ -24,10 +24,23 @@ AUTHORITATIVE_DOMAINS = [
     "github.com", "x.com", "twitter.com", "google.com/maps"
 ]
 
+def _unwrap_blocks(blocks: list) -> list:
+    """Recursively unwrap JSON-LD items and nested @graph containers."""
+    flat = []
+    for b in blocks:
+        if isinstance(b, list):
+            flat.extend(_unwrap_blocks(b))
+        elif isinstance(b, dict):
+            flat.append(b)
+            if "@graph" in b and isinstance(b["@graph"], list):
+                flat.extend(_unwrap_blocks(b["@graph"]))
+    return flat
+
 def evaluate_entity(html: str, jsonld_blocks: list) -> list:
     """Evaluate cross-web entity corroboration and polysemy ambiguity."""
     findings = []
     sameas_links = []
+    jsonld_blocks = _unwrap_blocks(jsonld_blocks)
 
     for b in jsonld_blocks:
         if isinstance(b, dict):
