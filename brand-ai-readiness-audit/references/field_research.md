@@ -18,7 +18,7 @@ This document formalizes the empirical field research conducted across live comm
     User-agent: PerplexityBot
     Allow: /
     ```
-  - *Result*: Cloudflare documentation, blog posts, and incident reports are cited with extreme frequency and high factual accuracy across ChatGPT, Perplexity, and Claude.
+  - *Observed Pattern*: Permissive crawler rules allow retrieval engines to ingest technical documentation and incident reports directly, supporting direct citation and accurate retrieval across conversational assistants.
 - **The New York Times (`nytimes.com/robots.txt`)**:
   - Explicitly blacklists AI search crawlers:
     ```text
@@ -29,7 +29,7 @@ This document formalizes the empirical field research conducted across live comm
     User-agent: PerplexityBot
     Disallow: /
     ```
-  - *Result*: Conversational AI assistants cannot access fresh articles directly, falling back on secondary aggregator citations or refusing to quote current news.
+  - *Observed Pattern*: Blocking AI crawlers at the robots.txt level prevents conversational assistants from accessing fresh article content directly, which can push citation toward secondary aggregators instead of the original source.
 
 ### Heuristic Encoded
 - **`F-CRAWL-003` (Robots.txt Blocks AI Crawlers)**:
@@ -44,10 +44,10 @@ This document formalizes the empirical field research conducted across live comm
 ### Observation
 - **Stripe (`stripe.com`)**:
   - Emits pre-rendered Schema.org `Organization` JSON-LD on static HTTP response with complete `sameAs` array linking to official LinkedIn, Crunchbase, Wikipedia, and Twitter profiles.
-  - *Result*: AI assistants never confuse Stripe with common homonyms (e.g., striped patterns, zebras, stripe cards) and quote exact corporate information without hallucination.
+  - *Observed Pattern*: Stripe's complete Organization JSON-LD with sameAs links to LinkedIn, Crunchbase, Wikipedia, and Twitter reduces entity-ambiguity risk for retrieval systems resolving brand identity against common dictionary homonyms.
 - **Linear (`linear.app`)**:
   - Uses client-side single-page architecture where root HTML omits static `Organization` JSON-LD.
-  - *Result*: AI models without headless browser execution risk conflating "Linear" with the mathematical concept ("linear regression") unless explicitly prompted with "Linear app issue tracking".
+  - *Observed Pattern*: When initial HTML omits static Organization markup, retrieval systems operating without headless browser execution have fewer authoritative on-site disambiguation signals, increasing the risk of entity confusion for generic polysemous names like "Linear".
 
 ### Heuristic Encoded
 - **`F-FRESH-008` (Entity Ambiguity & On-Site Disambiguation Posture)**:
@@ -59,9 +59,8 @@ This document formalizes the empirical field research conducted across live comm
 ## 3. Case Study 3: Gzipped Sitemaps & Index Architecture (Large Publishers)
 
 ### Observation
-- Enterprise sites (`nytimes.com`, large e-commerce platforms) do not serve raw uncompressed XML at `/sitemap.xml`.
-- They serve **Gzipped Sitemaps** (`sitemap.xml.gz`) or **Sitemap Indexes** (`<sitemapindex>`) declared exclusively inside `robots.txt`.
-- Naive crawlers attempting raw XML parsing on `/sitemap.xml` throw binary decode exceptions or false-positive missing sitemap findings.
+- Many large publishers and enterprise platforms (such as `nytimes.com`) frequently serve **Gzipped Sitemaps** (`sitemap.xml.gz`) or **Sitemap Indexes** (`<sitemapindex>`) declared in `robots.txt`, rather than a single raw XML file at the root path.
+- Naive crawlers that assume uncompressed XML or rely solely on default `/sitemap.xml` paths risk binary decode errors or false-positive missing sitemap findings when inspecting compressed payloads.
 
 ### Heuristic Encoded
 - **`F-CRAWL-008` (XML Sitemap Resolution)**:
@@ -73,11 +72,11 @@ This document formalizes the empirical field research conducted across live comm
 ## 4. Case Study 4: Deep Citation Anchoring (Perplexity Source Deep-Linking)
 
 ### Observation
-- Sites that Perplexity Search and ChatGPT Search cite with paragraph-level jump links (e.g. MDN Web Docs, Stripe Documentation, Python Official Docs) attach semantic HTML `id` attributes to every substantive heading:
+- Technical documentation sites that are frequently cited with section-level jump links (such as MDN Web Docs, Stripe Documentation, and Python Official Docs) typically attach semantic HTML `id` attributes to substantive headings:
   ```html
   <h2 id="create-payment-intent">Create a PaymentIntent</h2>
   ```
-- Sites lacking heading `id` attributes force AI assistants to link only to the top-level URL (`https://example.com`), causing arriving visitors to bounce because they cannot find the specific quoted passage.
+- When heading `id` attributes are absent, AI search interfaces typically can only link to the top-level page URL, increasing orientation friction for referred visitors trying to locate the specific quoted passage.
 
 ### Heuristic Encoded
 - **`F-ENGAGE-005` & Conditioned Proactive Trigger `F-PROACT-004`**:
@@ -89,9 +88,9 @@ This document formalizes the empirical field research conducted across live comm
 ## 5. Case Study 5: Conversion Friction & User Journey Dead-Ends for AI Referrals
 
 ### Observation
-- AI assistants (ChatGPT, Claude, Perplexity) refer users to pages based on specific conversational queries (e.g., pricing, compliance, feature comparisons).
-- When a landing page serves as an informational dead-end — lacking clear primary CTAs, trust proof (SOC2/ISO, customer quotes), commercial routing (/pricing, /contact), or discoverable FAQ paths — users bounce immediately without converting.
-- High-performing domains (Stripe, Linear, TopBrand) maintain persistent conversion routing and verified trust signals across every landing page.
+- Conversational AI queries frequently direct high-intent users to specific informational landing pages (e.g., pricing questions, compliance checks, feature comparisons).
+- When a target landing page lacks clear next steps — such as prominent CTAs, verifiable trust proof (compliance badges, customer quotes), commercial navigation (/pricing, /contact), or discoverable FAQ paths — visitors face higher conversion friction.
+- Well-structured commercial domains commonly provide explicit conversion pathways and verifiable trust signals alongside their technical claims.
 
 ### Heuristic Encoded
 - **`F-ENGAGE-011` through `F-ENGAGE-014` (`conversion_evaluator.py`)**:

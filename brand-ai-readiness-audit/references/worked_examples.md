@@ -7,11 +7,11 @@ This document provides concrete, worked examples demonstrating the failure modes
 ## 1. Worked Example 1: Deterministic Passage Quotability & Reference Resolution Heuristic (Atomic Fact Self-Containment per Appendix B & C)
 
 ### The Underlying Problem (Appendix B & C)
-When an AI assistant (ChatGPT, Perplexity) searches a live webpage to answer a user prompt (e.g., *"What is the transaction throughput of FlowDB?"*), the neural retrieval engine slices the document into ~500-character embedding chunks. If the page distributes facts across paragraphs that rely on unanchored pronouns, the chunk retriever loses the entity reference and the generation model refuses to cite the brand.
+When retrieval engines slice a document into ~500-character embedding windows to answer specific conversational queries, passages that distribute factual assertions across unanchored pronouns risk losing entity context, which reduces retrieval relevance scores and increases the risk of attribution loss in AI-generated answers.
 
 ### The Contrast
 
-#### A. Bad Pattern (Unquotable / Dropped by AI Assistants)
+#### A. Bad Pattern (Unanchored Anaphora / High Retrieval Loss Risk)
 ```html
 <main>
   <h2>High Performance</h2>
@@ -19,7 +19,7 @@ When an AI assistant (ChatGPT, Perplexity) searches a live webpage to answer a u
   <p>Our platform guarantees zero data loss through multi-region replication. It was tested against major cloud outages.</p>
 </main>
 ```
-* **Why it fails passage retrieval and quotation**: When an assistant chunks paragraph 1 (`"[High Performance] It processes over 100,000 queries..."`), the chunk contains the pronoun "It" without the brand entity name ("FlowDB"). The semantic embedding vector reflects a generic claim about an unknown subject. Perplexity drops it because the entity cannot be quoted as a standalone factual assertion.
+* **Why it impairs passage retrieval and quotation**: When a chunker isolates paragraph 1 (`"[High Performance] It processes over 100,000 queries..."`), the window contains the pronoun "It" without the brand entity name ("FlowDB"). The resulting embedding vector represents a generic assertion about an unspecified subject, significantly reducing the probability that retrieval models rank the chunk highly or attribute the capability to the brand.
 * **Our Audit Flag**:
   - `title`: `"High RAG retrieval failure risk: Substantive facts lack self-contained entity binding"`
   - `evidence`: `"Simulated 2 passage chunks (500 chars); 2/2 (100%) rely on dangling pronouns without explicit entity binding. Atomic Quotability Score: 0/100."`
@@ -32,7 +32,7 @@ When an AI assistant (ChatGPT, Perplexity) searches a live webpage to answer a u
   <p>FlowDB guarantees zero data loss through automated multi-region replication, verified against major cloud infrastructure outages.</p>
 </main>
 ```
-* **Why it succeeds**: The Subject-Predicate-Object triple is explicit: `[FlowDB] -> [processes] -> [100,000 queries/sec]`. An LLM retriever matches the chunk with high semantic similarity, extracts the claim verbatim, and generates an authoritative citation.
+* **Why it improves passage retrieval**: The Subject-Predicate-Object triple is self-contained: `[FlowDB] -> [processes] -> [100,000 queries/sec]`. The explicit entity binding provides clean semantic context for embedding models, supporting higher retrieval relevance and direct factual quotation.
 * **Our Audit Flag**: **PASS (AQS: 100/100, zero dangling chunks).**
 
 ---
@@ -76,7 +76,7 @@ Appendix F notes: *"when the genuinely important lines are surrounded by low-val
 ## 3. Worked Example 3: User Journey & Conversion Friction (Engagement Deepening)
 
 ### The Underlying Problem
-Visitors arriving from conversational AI assistants (ChatGPT, Perplexity, Claude) carry high specific intent. When an informational landing page fails to provide primary Call to Action (CTA) pathways, trust proof, or commercial routing, users bounce immediately.
+Visitors referred by conversational AI queries often arrive with specific task or commercial intent. When an informational landing page omits clear primary Call to Action (CTA) pathways, verifiable trust proof, or commercial routing, visitors encounter friction that can impede progression through the conversion funnel.
 
 ### The Contrast
 
