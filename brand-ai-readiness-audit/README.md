@@ -10,9 +10,9 @@ Emits a machine-readable, schema-compliant JSON report with concrete evidence, a
 ### The Core Problem: Retrieval vs. Browsing
 AI search engines (ChatGPT, Claude, Perplexity) do not browse websites like human visitors—they retrieve, extract, and synthesize evidence from chunked DOM structures. A brand's AI readiness typically breaks down across five failure modes:
 - **Crawler Access**: Blocked at `robots.txt` or obscured behind empty Client-Side Rendering (CSR) mounts.
-- **Passage Extraction**: Facts rely on dangling pronouns (*"It provides..."*), causing neural retrievers to lose entity attribution.
+- **Passage Extraction**: Facts rely on dangling pronouns (*"It provides..."*), causing retrieval systems to lose entity attribution.
 - **Entity Ambiguity**: Common-word brand names lack on-site Schema.org disambiguation (`legalName`, `sameAs`).
-- **Temporal Freshness**: Conflicting signals (> 180 days drift between headers and markup) trigger staleness penalties.
+- **Temporal Freshness**: Conflicting signals (> 180 days drift between headers and markup) can reduce confidence in freshness signals.
 - **Conversion Friction**: High-intent visitors referred from conversational queries hit dead-ends lacking next-step CTAs.
 
 This marketplace deterministically audits these structural failure modes and synthesizes drop-in, turnkey code remediations.
