@@ -23,9 +23,30 @@ from proactive_engine import generate_proactive_actions
 from freshness_evaluator import evaluate_freshness, extract_temporal_signals
 from entity_resolver import evaluate_entity
 from audit_crawl import audit_crawl, parse_robots_records, is_bot_blocked
-from conversion_evaluator import evaluate_conversion, has_commercial_intent
+from conversion_evaluator import evaluate_conversion, has_commercial_intent, check_primary_cta
 from quotability_evaluator import evaluate_quotability
 from filler_evaluator import evaluate_filler
+from nontext_inspector import inspect_nontext
+
+# ==============================================================================
+# Adversarial Validation Framework
+#
+# Tests in this suite are organized to verify both true-positive detection of
+# real architectural barriers and false-positive avoidance on legitimate web
+# designs. This paired validation pattern covers:
+# 1. robots.txt crawler evaluation (RFC 9309 specific-agent precedence & path scoping)
+# 2. CSR vs SSR detection (word-count thresholds & hydration hook tolerance)
+# 3. CSR data-island severity calibration (Next.js/Nuxt state downgrades)
+# 4. Entity disambiguation (common-word brand legalName/sameAs gating)
+# 5. Commercial-intent conversion gating (protecting docs/blogs from friction flags)
+# 6. E-commerce CTA recognition (transactional buttons and commerce routes)
+# 7. Passage quotability container scoping (narrative/editorial container exemptions)
+# 8. Hero-zone filler exemption & technical prose immunity (anti-fluff LDR gating)
+# 9. FAQ sibling-answer extraction (DOM sibling text vs meta-description fallback)
+# 10. Decorative image exemption (WCAG role="presentation" & aria-hidden="true")
+# 11. Expletive pronoun / dummy-subject filter in quotability analysis
+# 12. Search / query form exemption from primary conversion CTA detection
+# ==============================================================================
 
 class TestBrandAIReadinessAudit(unittest.TestCase):
 
@@ -33,6 +54,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.fixtures_dir = os.path.join(BASE_DIR, "fixtures")
 
     def test_01_blocked_site_detection(self):
+        """False-negative guard: Explicit AI crawler bans in robots.txt (GPTBot, ClaudeBot) must trigger critical findings, preventing missed crawler blocks."""
         fixture = os.path.join(self.fixtures_dir, "blocked_site")
         report = run_audit(fixture)
         valid, errors = validate_report_schema(report)
@@ -44,6 +66,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertGreaterEqual(report["summary"]["critical"], 1)
 
     def test_02_pure_csr_spa_detection(self):
+        """False-negative guard: Unrendered client-side SPAs with empty mount roots and zero static text must be flagged as critical CSR barriers."""
         fixture = os.path.join(self.fixtures_dir, "pure_csr_spa")
         report = run_audit(fixture)
         valid, errors = validate_report_schema(report)
@@ -54,6 +77,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(any("client-side rendering" in t for t in titles))
 
     def test_03_modern_nextjs_ssr_pass(self):
+        """False-positive guard: Modern pre-rendered SSR pages containing React/Next.js hydration scripts must NOT be incorrectly flagged as CSR barriers."""
         fixture = os.path.join(self.fixtures_dir, "modern_nextjs_ssr")
         report = run_audit(fixture)
         valid, errors = validate_report_schema(report)
@@ -65,6 +89,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertEqual(report["summary"]["critical"], 0)
 
     def test_04_stale_and_uncorroborated_detection(self):
+        """False-negative guard: Uncorroborated multi-channel stale dates, missing image alt text, and absent H1 headers must be reliably flagged without misses."""
         fixture = os.path.join(self.fixtures_dir, "stale_and_uncorroborated")
         report = run_audit(fixture)
         valid, errors = validate_report_schema(report)
@@ -76,6 +101,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(any("missing primary <h1>" in t for t in titles))
 
     def test_05_high_performing_brand_benchmark(self):
+        """False-positive guard: Well-structured, fully-optimized brand pages must receive a clean bill of health with zero critical or high findings."""
         fixture = os.path.join(self.fixtures_dir, "high_performing_brand")
         report = run_audit(fixture)
         valid, errors = validate_report_schema(report)
@@ -86,6 +112,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertEqual(report["summary"]["high"], 0)
 
     def test_06_differentiator_evidence_conditioned_proactive_engine(self):
+        """Anti-padding guard: Proactive engine must emit zero suggestions on minimal pages without evidence, while synthesizing turnkey code only when relevant Q&A or documentation signals exist."""
         # 1. Blank page: must NOT emit blanket proactive suggestions (Anti-padding verification)
         blank_bundle = {
             "html": "<html><body><h1>Minimal</h1><p>Hello world.</p></body></html>",
@@ -125,6 +152,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
             self.assertIn("```", p["suggested_action"]["summary"], "Proactive actions must embed turnkey code blocks")
 
     def test_07_execution_speed_under_3_seconds(self):
+        """Performance regression guard: Full end-to-end multi-skill audit across 5 diverse fixtures must execute within 3.0 seconds, avoiding runtime budget bloat."""
         start = time.time()
         for fixture_name in ["blocked_site", "pure_csr_spa", "modern_nextjs_ssr", "stale_and_uncorroborated", "high_performing_brand"]:
             fixture_path = os.path.join(self.fixtures_dir, fixture_name)
@@ -136,6 +164,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
 
 
     def test_08_rfc_9309_specific_agent_precedence(self):
+        """False-positive guard: Specific User-agent allow records must override wildcard (*) disallows per RFC 9309 §2.2.1, preventing false crawler block alarms."""
         # Cloudflare pattern: Wildcard disallowed, but GPTBot explicitly allowed
         from audit_crawl import parse_robots_records, is_bot_blocked
         robots_txt = """
@@ -150,6 +179,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertFalse(blocked, "RFC 9309 precedence: Specific Allow: / must override wildcard Disallow: /")
 
     def test_09_multi_page_subpage_evidence(self):
+        """Evidence fidelity guard: Multi-page structured data evaluation across subpages must accurately aggregate crawl counts and ratio evidence without phantom findings."""
         from schema_evaluator import evaluate_schema
         html_home = "<html><body><h1>Home</h1></body></html>"
         subpages = [
@@ -163,6 +193,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertIn("0/3 contain schema.org markup", evidence)
 
     def test_10_conversion_friction_evaluation(self):
+        """False-positive & false-negative guard: Commercial SaaS pages lacking CTAs must trigger all 4 friction findings, while editorial pages and fully converted pages pass cleanly."""
         from conversion_evaluator import evaluate_conversion
 
         # 1. Unconverted commercial / SaaS product page (triggers all 4 friction findings)
@@ -239,6 +270,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertEqual(len(clean_findings), 0, f"Expected 0 findings on fully converted page, got: {clean_findings}")
 
     def test_11_http_404_error_gating(self):
+        """Causal error shielding guard: HTTP 404 reachability errors must be isolated at root, cleanly gating out downstream freshness and engagement audits to prevent cascading false positives."""
         from audit_crawl import audit_crawl
         from audit_freshness import audit_freshness
         from audit_engagement import audit_engagement
@@ -255,6 +287,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertEqual(len(engagement_findings), 0, "404 must cleanly gate out engagement audit without false positives")
 
     def test_12_proactive_anchor_suppression(self):
+        """Deduplication guard: Proactive heading anchor suggestion (F-PROACT-004) must be suppressed if diagnostic finding F-ENGAGE-005 exists, preventing redundant report noise."""
         rich_bundle = {
             "html": """
             <html>
@@ -276,6 +309,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertFalse(any(p["id"] == "F-PROACT-004" for p in proactive_with), "F-PROACT-004 must be suppressed if F-ENGAGE-005 already exists")
 
     def test_13_strict_schema_validation(self):
+        """Contract compliance guard: Rejects malformed reports missing Handout Page 2 floor keys while safely permitting valid extension properties."""
         valid_report = {
             "site": "example.com",
             "audited_at": "2026-09-20T14:32:00Z",
@@ -319,6 +353,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(valid, f"Extension field rejected contrary to floor spec: {errs}")
 
     def test_14_multichannel_freshness_and_temporal_drift(self):
+        """Temporal discrimination guard: Stale findings (F-FRESH-005) require corroboration across all channels, while inter-channel divergence (>180 days) triggers drift (F-FRESH-007)."""
         # Case A: Multi-channel corroboration of stale dates (> 365 days across all channels)
         stale_html = """
         <html>
@@ -356,7 +391,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertIn("Conflicting temporal timestamps", f_drift["evidence"])
 
     def test_15_common_word_brand_disambiguation_guard(self):
-        """Entity ambiguity: Common-word brand with legalName and sameAs passes; generic brand without disambiguation fails."""
+        """False-positive & false-negative guard: Common-word brand with legalName and sameAs passes, while ambiguous brand without disambiguation fails."""
         # Safe Case: "Linear" with legalName and authoritative sameAs links
         safe_html = "<html><head><title>Linear | Issue Tracking</title></head><body></body></html>"
         safe_jsonld = [{
@@ -378,7 +413,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(any(f["id"] == "F-FRESH-008" for f in unsafe_findings), "True positive missed: Ambiguous generic brand was not flagged!")
 
     def test_16_csr_ssr_hydration_guard(self):
-        """CSR false positive: Server-rendered page with empty mount root passes; client-only blank mount root fails."""
+        """False-positive & false-negative guard: Server-rendered page with empty mount root passes via static word count, while unrendered client-only root fails."""
         # Safe Case: <div id="root"> mount root present, but body contains 260 words of pre-rendered HTML
         safe_prose = " ".join(["enterprise"] * 260)
         safe_bundle = {
@@ -397,7 +432,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(any(f["id"] == "F-CRAWL-006" for f in unsafe_findings), "True positive missed: Blank CSR root was not flagged!")
 
     def test_17_docs_page_commercial_intent_guard(self):
-        """Conversion friction: Informational documentation page passes; commercial SaaS page lacking CTA fails."""
+        """False-positive & false-negative guard: Informational documentation page passes via commercial-intent scope gate, while commercial SaaS page lacking CTA fails."""
         # Safe Case: Technical documentation page with no pricing, demo, or signup intent
         docs_html = """
         <html>
@@ -426,7 +461,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(any(f["id"] == "F-ENGAGE-011" for f in saas_findings), "True positive missed: Commercial SaaS page lacking CTA was not flagged!")
 
     def test_18_narrative_container_quotability_guard(self):
-        """Passage quotability: Narrative blog-post container passes via scope gate; technical spec with dangling pronouns fails."""
+        """False-positive & false-negative guard: Narrative blog-post container passes via container-type scope gate, while technical spec with dangling pronouns fails."""
         # Generate 4 passage chunks (each ~500 chars) starting with dangling pronouns
         chunks_html = ""
         for verb in ["delivers", "processes", "executes", "orchestrates"]:
@@ -445,7 +480,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertLess(unsafe_res["score"], 50)
 
     def test_19_hero_zone_filler_exemption_guard(self):
-        """Fact-to-filler ratio: Fluff inside hero container is exempt; identical fluff in technical section fails."""
+        """False-positive & false-negative guard: Marketing fluff inside hero container is exempt from LDR penalties, while identical fluff in technical sections fails."""
         fluff_copy = "World-class seamless synergy empowering disruptive next-gen paradigm holistic solutions. " * 10
 
         # Safe Case: Marketing buzzwords placed inside <section class="hero"> alongside substantive technical body copy
@@ -472,7 +507,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(unsafe_res["flagged"], "True positive missed: Fluff-heavy technical section lacking metrics was not flagged!")
 
     def test_20_path_scoped_robots_disallow_guard(self):
-        """Robots.txt evaluation: Permitted bot passes; path-scoped Disallow: /private/ is flagged as a partial block."""
+        """False-positive & false-negative guard: Explicitly permitted bot with empty Disallow: passes cleanly, while path-scoped Disallow: /private/ flags as partial block."""
         # Safe Case: Specific record with empty Disallow (RFC 9309 allow-all)
         safe_robots = "User-agent: ClaudeBot\nDisallow:\n"
         safe_records = parse_robots_records(safe_robots)
@@ -487,7 +522,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertIn("/private/", reason_unsafe)
 
     def test_21_csr_data_island_severity_downgrade_guard(self):
-        """CSR data-island: Empty mount root with __NEXT_DATA__ JSON state downgrades from critical to medium."""
+        """Severity calibration guard: Empty mount root with __NEXT_DATA__ JSON state downgrades from critical to medium, while non-JSON garbage scripts retain critical severity."""
         # Safe-ish Case: Empty mount root (<div id="root"></div>) and thin prose (<50 words), but with non-trivial __NEXT_DATA__ JSON
         next_json = '{"props":{"pageProps":{"title":"Enterprise Cloud","pricing":"$99/mo"}}}'
         data_island_html = f"""
@@ -551,7 +586,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertNotIn("__NEXT_DATA__", csr_garbage[0]["evidence"])
 
     def test_22_technical_prose_fluff_lexicon_no_false_positive(self):
-        """Filler evaluator: Domain-appropriate technical prose with 1-2 lexicon words ('seamless', 'state-of-the-art') does not flag."""
+        """False-positive guard: Substantive engineering prose containing isolated lexicon terms ('seamless', 'state-of-the-art') must pass when below compound threshold floors."""
         sample_prose = """
         <article>
           <h2>Distributed Consensus Architecture</h2>
@@ -572,7 +607,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertEqual(res["quant_matches"], 0, "Expected 0 quantified metrics to test the unquantified technical prose guard")
 
     def test_23_faq_sibling_answer_extraction_guard(self):
-        """FAQ generation: Extract sibling element text for acceptedAnswer; fall back to meta_desc when missing."""
+        """Extraction fidelity guard: FAQPage generator extracts immediate sibling DOM answer text rather than generic meta descriptions, falling back only when sibling text is absent."""
         # Case A: Sibling <p> element exists immediately after question heading
         bundle_sibling = {
             "html": (
@@ -611,7 +646,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertIn("Default fallback description for Cloud Service.", faq_fb_summary, "FAQPage JSON-LD must fall back to meta description when sibling element is absent")
 
     def test_24_ecommerce_cta_recognition_guard(self):
-        """E-commerce CTA recognition: 'Add to Cart' button and /shop route satisfy commercial intent without missing-CTA flag."""
+        """False-positive & false-negative guard: E-commerce storefront with 'Add to Cart' and /shop passes without missing-CTA flag, while commercial SaaS lacking CTAs triggers F-ENGAGE-011."""
         # Case A: E-commerce page with <button>Add to Cart</button> and <a href="/shop">
         ecom_html = """
         <!DOCTYPE html>
@@ -644,6 +679,112 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(has_commercial_intent(saas_no_cta), "Expected has_commercial_intent to be True for commercial SaaS copy")
         saas_findings = evaluate_conversion(saas_no_cta)
         self.assertTrue(any(f["id"] == "F-ENGAGE-011" for f in saas_findings), "Commercial SaaS page lacking CTA must trigger F-ENGAGE-011")
+
+    def test_25_decorative_image_exemption_guard(self):
+        """False-positive & false-negative guard: Decorative images (role="presentation", aria-hidden="true") without alt text pass, while uncaptioned informative graphics fail."""
+        # Case A: Purely decorative icon/background images lacking alt text
+        safe_html = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Modern Interface</title></head>
+        <body>
+          <h1>Interface Architecture</h1>
+          <p>The dashboard provides real-time event visualization and alerts.</p>
+          <img src="/icons/star.svg" role="presentation">
+          <img src="/icons/divider.png" role="none">
+          <img src="/decorations/bg.svg" aria-hidden="true">
+        </body>
+        </html>
+        """
+        safe_findings = inspect_nontext(safe_html)
+        self.assertFalse(any(f["id"] == "F-FRESH-007" for f in safe_findings), "False positive: Decorative images with role='presentation' or aria-hidden='true' were flagged for missing alt text!")
+
+        # Case B: Genuinely informative diagram/infographic images lacking descriptive alt text
+        unsafe_html = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Architecture Overview</title></head>
+        <body>
+          <h1>System Topology</h1>
+          <p>Detailed technical architecture and failover topologies.</p>
+          <img src="/diagrams/system-topology.png">
+          <img src="/infographics/data-pipeline.png" alt="">
+          <img src="/charts/benchmark-results.png" alt="graphic">
+        </body>
+        </html>
+        """
+        unsafe_findings = inspect_nontext(unsafe_html)
+        self.assertTrue(any(f["id"] == "F-FRESH-007" for f in unsafe_findings), "True positive missed: Informative diagram graphics lacking alt text were not flagged!")
+        self.assertIn("3/3 (100%) informative img elements", unsafe_findings[0]["evidence"])
+
+    def test_26_expletive_pronoun_filter_guard(self):
+        """False-positive & false-negative guard: Natural dummy-subject prose ('It is...', 'It takes...') does not penalize quotability, while genuine dangling anaphora fails."""
+        # Case A: Informative prose using standard expletive/dummy-subject constructions
+        safe_chunks = ""
+        for phrase in [
+            "Deployment requirements are minimal. It is essential to configure this before deployment.",
+            "Initial cluster bootstrap takes seconds. It takes 30 seconds to complete setup.",
+            "System diagnostics run continuously. It appears that the network throughput reaches optimum scale.",
+            "Operational safeguards protect data. It has been verified across production clusters."
+        ]:
+            safe_chunks += f"<p>{phrase} " + "The distributed system coordinates state across regional edge workers without blocking the main thread. " * 5 + ".</p>"
+
+        safe_html = f"<article class='spec'>{safe_chunks}</article>"
+        safe_res = evaluate_quotability(safe_html)
+        self.assertFalse(safe_res["flagged"], f"False positive: Expletive pronoun constructions flagged as dangling anaphora: {safe_res}")
+        self.assertEqual(safe_res["dangling_chunks"], 0, f"Expected 0 dangling chunks for dummy subjects, got {safe_res['dangling_chunks']}")
+        self.assertEqual(safe_res["score"], 100, "Expected 100/100 Atomic Quotability Score for properly formed dummy subjects")
+
+        # Case B: Technical claims relying on genuine dangling pronouns without entity antecedents
+        unsafe_chunks = ""
+        for phrase in [
+            "Deployment requirements are minimal. It delivers 99.99% multi-region uptime guarantees.",
+            "Initial cluster bootstrap takes seconds. They feature sub-millisecond distributed consensus.",
+            "System diagnostics run continuously. This provides zero-knowledge cryptographic encryption.",
+            "Operational safeguards protect data. The platform executes transactional commit phases."
+        ]:
+            unsafe_chunks += f"<p>{phrase} " + "The distributed system coordinates state across regional edge workers without blocking the main thread. " * 5 + ".</p>"
+
+        unsafe_html = f"<article class='spec'>{unsafe_chunks}</article>"
+        unsafe_res = evaluate_quotability(unsafe_html)
+        self.assertTrue(unsafe_res["flagged"], "True positive missed: Technical assertions with dangling pronouns were not flagged!")
+        self.assertGreaterEqual(unsafe_res["dangling_chunks"], 3, "Expected at least 3 dangling chunks for unresolved pronouns")
+        self.assertLess(unsafe_res["score"], 50, "Expected Atomic Quotability Score below 50")
+
+    def test_27_search_form_cta_exemption_guard(self):
+        """False-positive & false-negative guard: Search/query forms do not satisfy conversion CTAs, while genuine conversion buttons prevent missing-CTA flags."""
+        # Case A: Commercial SaaS page containing a search form with submit button, but 0 conversion CTAs
+        search_page = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Enterprise Database</title></head>
+        <body>
+          <header>
+            <form role="search" action="/search" method="get">
+              <input type="text" name="q" placeholder="Search documentation...">
+              <button type="submit">Search</button>
+            </form>
+            <nav><a href="/pricing">Pricing Plans</a></nav>
+          </header>
+          <main>
+            <h1>Enterprise Database Solutions</h1>
+            <p>Scalable cloud infrastructure delivering managed database subscriptions with guaranteed SLA.</p>
+          </main>
+        </body>
+        </html>
+        """
+        has_cta, _ = check_primary_cta(search_page)
+        self.assertFalse(has_cta, "False positive: Search form with submit button was incorrectly identified as a conversion CTA!")
+        search_findings = evaluate_conversion(search_page)
+        self.assertTrue(any(f["id"] == "F-ENGAGE-011" for f in search_findings), "True positive missed: Commercial page with only a search form must trigger F-ENGAGE-011!")
+
+        # Case B: Same page with a genuine primary conversion CTA button added
+        cta_page = search_page.replace("</main>", "<button>Get Started</button></main>")
+        has_cta_b, cta_msg = check_primary_cta(cta_page)
+        self.assertTrue(has_cta_b, "Failed to recognize genuine 'Get Started' button CTA")
+        self.assertIn("Get Started", cta_msg)
+        cta_findings = evaluate_conversion(cta_page)
+        self.assertFalse(any(f["id"] == "F-ENGAGE-011" for f in cta_findings), "False positive: Page with valid 'Get Started' CTA button flagged for missing CTA!")
 
 if __name__ == "__main__":
     unittest.main()

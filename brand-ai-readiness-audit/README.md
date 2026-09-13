@@ -14,24 +14,24 @@ Emits a machine-readable, schema-compliant JSON report with concrete evidence, a
 Unlike generic SEO checkers that merely look at legacy `<title>` tags or word counts, our marketplace directly implements the underlying mechanics from **Round 2 Appendices B, C, D, and F**:
 
 ### ★ Diff 1: Deterministic Passage Quotability & Reference Resolution Heuristic (Atomic Fact Self-Containment per Appendix B & C)
-- **The Problem**: Search and retrieval systems chunk documents into ~500-character windows. If key facts rely on unresolved anaphora (*"It provides 99.9% uptime"*, *"They feature zero-knowledge encryption"*), retrievers score the passage poorly and AI assistants refuse to cite the brand.
+- **The Problem**: Retrieval and passage-ranking systems often slice documents into ~500-character windows. If key capability claims rely on unresolved anaphora (*"It provides 99.9% uptime"*, *"They feature zero-knowledge encryption"*), the extracted chunk lacks self-contained subject context, reducing retrieval relevance scores and increasing the risk of attribution loss in AI-generated answers.
 - **Safeguards**:
   - *Scope Gating*: Restricted strictly to technical documentation and informational containers (`<main>`, `<article>`, `[role="main"]`, `<dl>`, `<table>`, `.docs`, `.faq`), excluding narrative founder letters, team stories, and editorial blogs.
   - *Hierarchical Context Injection*: Every chunk is prepended with its nearest parent heading (`H1 > H2 > H3`), modeling passage-level retrieval and reference resolution so heading-anchored chunks pass cleanly.
   - *Expletive Pronoun Filter*: Excludes dummy subjects (*"It is essential that..."*, *"It takes 5 minutes..."*).
 
 ### ★ Diff 2: Substantive Lexical Density & Anti-Fluff Analysis (LDR per Appendix F)
-- **The Problem**: Appendix F demonstrates that AI summarizers drop critical transactional facts when surrounded by low-value filler. On web pages, corporate fluff (*"seamlessly synergizing next-gen paradigms"*) dilutes substantive semantic density, causing LLM summarizers to drop core offerings.
+- **The Problem**: Appendix F notes that dense text summarizers often omit critical transactional details when surrounded by low-value filler. On web pages, boilerplate corporate jargon (*"seamlessly synergizing next-gen paradigms"*) dilutes substantive semantic density, increasing the risk that key product specifications and offerings are lost during extraction and summarization.
 - **Safeguards**:
   - *Hero Zone Exemption*: Hero sections, H1 headlines, and marketing banners are 100% exempt, fully preserving creative copywriting (Apple, Nike, Linear).
   - *Computational Linguistics*: Uses standard Lexical Density Ratio ($LDR = \frac{\text{content words}}{\text{total words}}$) rather than statistical character entropy.
   - *Informational Anchor Gate*: Only triggers if a technical/feature section contains **zero quantified tokens** (numbers, technical specs, protocols, currencies, percentages) AND is saturated with abstract buzzwords. A single concrete spec passes the section.
 
 ### ★ Diff 3: Entity Ambiguity & On-Site Disambiguation Posture (Round 2 Appendix D)
-- **The Problem**: Appendix D states that identical/generic names cause AI systems to confuse entities (e.g. brands named "Pulse", "Forge", "Ramp", "Canvas").
+- **The Problem**: Appendix D highlights that identical or generic homonym names create entity ambiguity, increasing the likelihood that automated indexers conflate distinct organizations sharing names like "Pulse", "Forge", "Ramp", or "Canvas".
 - **Safeguards**:
   - *100% Offline & Deterministic*: Zero external API calls, zero SPARQL requests, zero rate-limit or firewall risks in sandboxes.
-  - *On-Site Disambiguation Posture*: Audits what the webmaster directly controls: Schema.org `legalName`, explicit `@type` (`FinancialService` vs `SoftwareApplication`), `disambiguatingDescription`, and canonical `sameAs` entity links to official registry profiles. Homonym brands with proper on-site markup pass with flying colors.
+  - *On-Site Disambiguation Posture*: Audits what the webmaster directly controls: Schema.org `legalName`, explicit `@type` (`FinancialService` vs `SoftwareApplication`), `disambiguatingDescription`, and canonical `sameAs` entity links to official registry profiles. Homonym brands with proper on-site markup pass without ambiguity warnings.
 
 ### ★ Turnkey Suggested Action Synthesizer (`proactive_engine.py`)
 - **Mechanism**: Rather than emitting passive, generic advice (*"Consider creating an llms.txt"*), the synthesizer delivers drop-in, turnkey code fixes nested cleanly inside `suggested_action.summary` via Markdown code blocks.
@@ -146,7 +146,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 
 ### Running the Test & Benchmark Suites
 ```bash
-# Automated regression unit tests (24 tests in ~0.03s)
+# Automated regression unit tests (27 tests in ~0.04s)
 python3 test_audit.py
 
 # Full 5-step benchmark scorecard (latency percentiles, ground truth accuracy)
@@ -183,6 +183,9 @@ Every false-positive safeguard in this marketplace is backed by a bidirectional 
 | **Technical Prose Fluff Immunity** | Over-penalizes legitimate technical prose using literal words like "seamless" without quantified metrics. | Compound gate (`words >= 80`, `fluff >= 5`, `ratio > 3.5%`) prevents false positives on substantive engineering text. | `test_22_technical_prose_fluff_lexicon_no_false_positive` |
 | **FAQ Sibling Answer Extraction** | Generates FAQ schema with generic page-level meta descriptions instead of the actual on-page answers. | Dynamically parses immediate sibling DOM elements (`<p>`, `<div>`, `<dd>`, `<ul>`) following question headings to extract substantive answers. | `test_23_faq_sibling_answer_extraction_guard` |
 | **E-commerce CTA Recognition** | Only recognizes B2B/SaaS CTAs ("Book Demo", "Start Trial"), flagging e-commerce storefronts for missing CTAs. | Broadened transactional lexicon recognizes "Add to Cart", "Checkout", "Shop Now", and commerce routes (`/shop`, `/cart`). | `test_24_ecommerce_cta_recognition_guard` |
+| **Decorative Image Exemption** | Flags all images without descriptive alt text, including decorative spacers, icons, and backgrounds. | Honors WCAG decorative markup (`role="presentation"`, `role="none"`, `aria-hidden="true"`), excluding decorative media while strictly flagging uncaptioned informative graphics. | `test_25_decorative_image_exemption_guard` |
+| **Expletive Pronoun Filter** | Flags natural English dummy-subject idioms (*"It is essential..."*, *"It takes 30 seconds..."*) as dangling anaphora. | Regex lookahead pattern (`it\s+(?:is|was|takes|seems|appears|has\s+been)`) exempts standard expletive constructions from passage quotability penalties while flagging genuine unresolved pronouns. | `test_26_expletive_pronoun_filter_guard` |
+| **Search Form CTA Exemption** | Treats any `<form>` with a submit button or `<button>` as a commercial conversion CTA, letting pages with only site search pass without CTAs. | Disqualifies search, query, and filter forms via `role="search"`, `action="...search..."`, and `name="q"`, accurately enforcing `F-ENGAGE-011` when zero actual conversion pathways exist. | `test_27_search_form_cta_exemption_guard` |
 
 These tests demonstrate that the marketplace discriminates between genuine architectural barriers and intentional, standard web design patterns.
 
