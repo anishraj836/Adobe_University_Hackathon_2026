@@ -1,0 +1,92 @@
+{
+  "site": "www.python.org",
+  "audited_at": "2026-09-13T04:30:07Z",
+  "summary": {
+    "total_findings": 8,
+    "critical": 1,
+    "high": 0,
+    "medium": 7
+  },
+  "findings": [
+    {
+      "id": "F-001",
+      "title": "Robots.txt blocks AI assistant crawlers",
+      "severity": "critical",
+      "evidence": "RFC 9309 evaluation identified 9 blocked AI crawler(s): gptbot, chatgpt-user, claudebot, perplexitybot, google-extended, applebot-extended, amazonbot, bytespider, ccbot.",
+      "suggested_action": {
+        "summary": "Update robots.txt to permit indexing by conversational AI crawlers (GPTBot, ClaudeBot, PerplexityBot) on public content paths.",
+        "priority": "critical"
+      }
+    },
+    {
+      "id": "F-002",
+      "title": "No XML Sitemap found or referenced",
+      "severity": "medium",
+      "evidence": "Neither /sitemap.xml was accessible nor was a Sitemap: directive declared in robots.txt.",
+      "suggested_action": {
+        "summary": "Generate an automated sitemap.xml listing all canonical pages and declare its URL in robots.txt.",
+        "priority": "medium"
+      }
+    },
+    {
+      "id": "F-003",
+      "title": "Multiple competing <h1> headings cause orientation ambiguity",
+      "severity": "medium",
+      "evidence": "Found 5 distinct <h1> tags across parsed DOM, creating conflicting hierarchy signals for visitors and scrapers.",
+      "suggested_action": {
+        "summary": "Consolidate into a single clear <h1> representing the core proposition, demoting secondary headings to <h2>.",
+        "priority": "medium"
+      }
+    },
+    {
+      "id": "F-004",
+      "title": "Cognitive mismatch between primary <h1> and meta description",
+      "severity": "medium",
+      "evidence": "0 shared topical keywords between headline ('intuitive interpretation') and meta description ('The official home of the Python Programming Language...'). Arriving AI referrals experience immediate cognitive disconnect.",
+      "suggested_action": {
+        "summary": "Align primary <h1> messaging with the meta description so visitors referred by conversational AI recognize the proposition immediately.",
+        "priority": "medium"
+      }
+    },
+    {
+      "id": "F-005",
+      "title": "Subheadings lack persistent citation anchor IDs",
+      "severity": "medium",
+      "evidence": "Only 0/9 (H2-H4) subheadings possess HTML id attributes for fragment deep-linking.",
+      "suggested_action": {
+        "summary": "Attach persistent semantic id attributes (e.g., id='features', id='pricing') to all H2/H3 headers so AI assistants can cite and deep-link directly to factual claims.",
+        "priority": "medium"
+      }
+    },
+    {
+      "id": "F-006",
+      "title": "[Proactive Opportunity] Deploy /llms.txt manifest for discovered documentation assets",
+      "severity": "medium",
+      "evidence": "Discovered 26 documentation/API route(s) (e.g. 'https://docs.python.org'), but no /llms.txt file exists at origin root to guide AI inference engines.",
+      "suggested_action": {
+        "summary": "Deploy this turnkey /llms.txt manifest at your website root to index your 26 documentation routes for instant frontier model ingestion:\n\n```markdown\n# Welcome to Python.org AI Context Manifest\n> The official home of the Python Programming Language\n\n## Canonical Resources\n- https://www.python.org: Official Homepage\n- https://docs.python.org: Developer & Product Documentation\n- https://www.python.org/llms-full.txt: Full uncompressed documentation for frontier models\n```",
+        "priority": "medium"
+      }
+    },
+    {
+      "id": "F-007",
+      "title": "[Proactive Opportunity] Structure discovered Q&A content into FAQPage JSON-LD",
+      "severity": "medium",
+      "evidence": "Detected 0 natural question(s) in body copy (e.g. 'What does Welcome to Python.org do?'), but page lacks structured FAQPage markup.",
+      "suggested_action": {
+        "summary": "Embed this pre-populated Schema.org FAQPage snippet in your HTML <head> to enable zero-shot answer extraction in Perplexity and ChatGPT Search:\n\n```html\n<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"FAQPage\",\n  \"mainEntity\": [\n    {\n      \"@type\": \"Question\",\n      \"name\": \"What does Welcome to Python.org do?\",\n      \"acceptedAnswer\": {\n        \"@type\": \"Answer\",\n        \"text\": \"The official home of the Python Programming Language\"\n      }\n    }\n  ]\n}\n</script>\n```",
+        "priority": "medium"
+      }
+    },
+    {
+      "id": "F-008",
+      "title": "[Proactive Opportunity] Bridge commercial brand entity to Knowledge Graph registries",
+      "severity": "medium",
+      "evidence": "Commercial product/pricing signals detected, but no Schema.org sameAs links ground the brand to external knowledge graph registries.",
+      "suggested_action": {
+        "summary": "Anchor the brand identity across LLM parametric memory by embedding this Schema.org Organization template with populated sameAs URIs:\n\n```html\n<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"Welcome to Python.org\",\n  \"url\": \"https://www.python.org\",\n  \"description\": \"The official home of the Python Programming Language\",\n  \"sameAs\": [\n    \"https://www.linkedin.com/company/www-python-org\",\n    \"https://www.crunchbase.com/organization/www-python-org\",\n    \"https://github.com/www-python-org\"\n  ]\n}\n</script>\n```",
+        "priority": "medium"
+      }
+    }
+  ]
+}
