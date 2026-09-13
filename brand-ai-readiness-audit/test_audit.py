@@ -16,6 +16,7 @@ sys.path.insert(0, ORCHESTRATOR_SCRIPTS)
 
 from run_audit import run_audit
 from schema_validator import validate_report_schema
+from proactive_engine import generate_proactive_actions
 
 class TestBrandAIReadinessAudit(unittest.TestCase):
 
@@ -75,16 +76,44 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertEqual(report["summary"]["critical"], 0)
         self.assertEqual(report["summary"]["high"], 0)
 
-    def test_06_differentiator_turnkey_artifacts(self):
-        # Verify that proactive findings embed turnkey code blocks in suggested_action.summary
-        fixture = os.path.join(self.fixtures_dir, "blocked_site")
-        report = run_audit(fixture)
-        proactive = [f for f in report["findings"] if "[Proactive Opportunity]" in f["title"]]
-        self.assertGreaterEqual(len(proactive), 1)
+    def test_06_differentiator_evidence_conditioned_proactive_engine(self):
+        # 1. Blank page: must NOT emit blanket proactive suggestions (Anti-padding verification)
+        blank_bundle = {
+            "html": "<html><body><h1>Minimal</h1><p>Hello world.</p></body></html>",
+            "url": "https://minimal.com"
+        }
+        blank_proactive = generate_proactive_actions(blank_bundle, set())
+        self.assertEqual(len(blank_proactive), 0, "Proactive engine must not blanket-emit without evidence")
+
+        # 2. Rich page with documentation and Q&A content: MUST trigger conditioned suggestions
+        rich_bundle = {
+            "html": """
+            <html>
+            <head><title>Enterprise Flow</title><meta name='description' content='High-throughput streaming'></head>
+            <body>
+              <nav><a href='/docs'>Documentation</a> <a href='/api'>API Reference</a></nav>
+              <main>
+                <h1>Enterprise Flow</h1>
+                <p>High throughput event streaming engine.</p>
+                <h3>How does batching work?</h3>
+                <p>Events are grouped into micro-batches of 500 records.</p>
+                <h2>Performance Specs</h2>
+                <h2>Security Architecture</h2>
+              </main>
+            </body>
+            </html>
+            """,
+            "url": "https://enterpriseflow.io"
+        }
+        rich_proactive = generate_proactive_actions(rich_bundle, set())
+        self.assertGreaterEqual(len(rich_proactive), 2)
         
-        # Verify markdown code block presence
-        has_code_block = any("```" in f["suggested_action"]["summary"] for f in proactive)
-        self.assertTrue(has_code_block, "Proactive suggestions must embed turnkey code blocks")
+        # Verify markdown code blocks are present in suggested actions
+        titles = [p["title"] for p in rich_proactive]
+        self.assertTrue(any("/llms.txt" in t for t in titles), "Must suggest llms.txt when doc links observed")
+        self.assertTrue(any("FAQPage" in t for t in titles), "Must suggest FAQPage when question patterns observed")
+        for p in rich_proactive:
+            self.assertIn("```", p["suggested_action"]["summary"], "Proactive actions must embed turnkey code blocks")
 
     def test_07_execution_speed_under_3_seconds(self):
         start = time.time()

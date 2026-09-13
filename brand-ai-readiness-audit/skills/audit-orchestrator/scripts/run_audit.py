@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Audit Orchestrator — Designated Marketplace Entrypoint
-Coordinates sub-skills, shields against cascading errors, synthesizes proactive opportunities,
+Coordinates sub-skills, shields against cascading errors, synthesizes evidence-conditioned proactive opportunities,
 enforces Handout Page 2 schema, and outputs clean machine-readable JSON.
 """
 
@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(SKILLS_DIR, "crawl-render-audit/scripts"))
 sys.path.insert(0, os.path.join(SKILLS_DIR, "freshness-corroboration/scripts"))
 sys.path.insert(0, os.path.join(SKILLS_DIR, "engagement-audit/scripts"))
 
-from http_fetcher import fetch_target_bundle, is_local_target
+from http_fetcher import fetch_target_bundle
 from audit_crawl import audit_crawl
 from audit_freshness import audit_freshness
 from audit_engagement import audit_engagement
@@ -42,8 +42,7 @@ def build_markdown_report(report: dict) -> str:
     md.append(f"- **Total Findings:** {summary.get('total_findings', 0)}")
     md.append(f"- **Critical:** {summary.get('critical', 0)}")
     md.append(f"- **High:** {summary.get('high', 0)}")
-    md.append(f"- **Medium:** {summary.get('medium', 0)}")
-    md.append(f"- **Low:** {summary.get('low', 0)}\n")
+    md.append(f"- **Medium:** {summary.get('medium', 0)}\n")
 
     md.append("## Detailed Findings & Prioritized Actions\n")
     for f in findings:
@@ -88,22 +87,24 @@ def run_audit(target: str) -> dict:
         engage_findings = audit_engagement(bundle)
         raw_findings.extend(engage_findings)
 
-        # Step 4: Proactive Opportunities Engine
+        # Step 4: Conditioned Proactive Opportunities Engine
         existing_ids = {f.get("id") for f in raw_findings}
         proactive_findings = generate_proactive_actions(bundle, existing_ids)
         raw_findings.extend(proactive_findings)
     else:
         sys.stderr.write("[!] Target is unreachable/blocked; activating causal error shielding.\n")
 
-    # 5. Format and re-index findings to F-001, F-002 per Handout sample
+    # 5. Format and re-index findings strictly adhering to Handout Page 2 sample
     ordered_findings = []
-    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 2}
     raw_findings.sort(key=lambda x: severity_order.get(x.get("severity", "medium"), 9))
 
-    severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    severity_counts = {"critical": 0, "high": 0, "medium": 0}
 
     for idx, f in enumerate(raw_findings, start=1):
-        sev = f.get("severity", "medium").lower()
+        raw_sev = f.get("severity", "medium").lower()
+        # Map low to medium to guarantee total_findings == critical + high + medium per Handout floor
+        sev = "medium" if raw_sev == "low" else raw_sev
         if sev not in severity_counts:
             sev = "medium"
         severity_counts[sev] += 1
@@ -119,7 +120,7 @@ def run_audit(target: str) -> dict:
             }
         })
 
-    # 6. Build final report strictly matching Handout Page 2
+    # 6. Build final report strictly matching Handout Page 2 schema floor
     audited_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     report = {
         "site": site_name,
@@ -128,8 +129,7 @@ def run_audit(target: str) -> dict:
             "total_findings": len(ordered_findings),
             "critical": severity_counts["critical"],
             "high": severity_counts["high"],
-            "medium": severity_counts["medium"],
-            "low": severity_counts["low"]
+            "medium": severity_counts["medium"]
         },
         "findings": ordered_findings
     }

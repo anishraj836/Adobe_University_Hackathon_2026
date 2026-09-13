@@ -21,12 +21,9 @@ Use when diagnosing why an AI assistant cannot reach, fetch, or render the conte
 2. **Robots.txt Analysis**: Parse RFC 9309 rules specifically checking for AI crawlers: `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`, `Applebot-Extended`, `Amazonbot`, `Bytespider`, `CCBot`.
 3. **Meta Restrictions**: Scan `<head>` for `<meta name="robots" content="noindex|noai|noimageai">` and inspect `X-Robots-Tag` headers.
 4. **Modern SSR vs CSR Evaluation**: Measure visible prose word count in static HTML body. If >= 250 words, verify SSR PASS (immune to Next.js App Router RSC streaming scripts). Only flag CSR barrier if text < 50 words and empty mount root (`#root`, `#app`, `#__next`) is detected.
-5. **Sitemap Discovery**: Verify presence of `/sitemap.xml` or `Sitemap:` directive in `robots.txt`.
+5. **Sitemap Discovery**: Verify presence of `/sitemap.xml` or `Sitemap:` directive in `robots.txt`, decompressing `.xml.gz` streams transparently.
 
-## Output
-Returns a structured list of findings with severity, evidence, and prioritized suggested actions:
-- `F-CRAWL-001`: Site unreachable or connection blocked.
-- `F-CRAWL-002`: AI crawlers selectively blocked by WAF.
-- `F-CRAWL-003`: Robots.txt disallows AI assistant crawlers.
-- `F-CRAWL-005`: Meta robots or headers prohibit AI ingestion.
-- `F-CRAWL-006`: Client-side rendering barrier (pure CSR SPA).
+## Guardrails & Compliance
+- **Recommend-Only**: Non-destructive, read-only inspection.
+- **RFC 9309 Compliance**: Honors robots.txt disallow directives.
+- **Timeouts**: Bounded 6-second HTTP timeouts per request.

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-Proactive Beyond-Defect Engine — Turnkey Artifact Synthesis (Diff 4)
-Synthesizes ready-to-deploy code and markdown artifacts (/llms.txt, Schema.org JSON-LD,
-semantic citation anchors) directly within suggested_action.summary, strictly conforming
-to Handout Page 2 JSON schema.
+Proactive Beyond-Defect Engine — Strictly Evidence-Conditioned (Diff 4)
+Generates non-obvious, relevant strategic actions ONLY when triggered by concrete
+observed site evidence, avoiding blanket emissions (padding). Strictly adheres to Handout Page 2 schema.
 """
 
 import re
@@ -14,7 +13,13 @@ def clean_tag(text: str) -> str:
     return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', '', text)).strip()
 
 def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
-    """Generate high-impact proactive recommendations with embedded turnkey code artifacts."""
+    """
+    Generate non-obvious proactive recommendations strictly conditioned on observed site evidence:
+    1. FAQPage: ONLY if text contains un-marked Q&A patterns or FAQ sections.
+    2. Citation Anchors: ONLY if H2/H3 subheadings exist but lack HTML id attributes.
+    3. llms.txt: ONLY if documentation / API / guide routes are observed on-site.
+    4. sameAs Bridge: ONLY if commercial entity signals exist but entity ambiguity is detected.
+    """
     proactive = []
     html = bundle.get("html", "")
     llms_txt = bundle.get("llms_txt", "")
@@ -23,40 +28,55 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
     origin = f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else "https://example.com"
     brand_host = parsed.netloc or parsed.path or "brand.com"
 
-    # Extract real page title and meta description
+    # If the site is blocked at network level, suppress all proactive suggestions
+    if "F-CRAWL-001" in existing_finding_ids:
+        return []
+
     title_match = re.search(r'<title\b[^>]*>(.*?)<\/title>', html, re.I)
     page_title = clean_tag(title_match.group(1)) if title_match else brand_host
 
     meta_match = re.search(r'<meta\s+name=["\']description["\']\s+content=["\']([^"\']+)["\']', html, re.I)
     meta_desc = clean_tag(meta_match.group(1)) if meta_match else f"Official documentation and resources for {page_title}."
 
-    # 1. Turnkey Artifact: Tailored /llms.txt Manifest
-    if not llms_txt and "F-CRAWL-001" not in existing_finding_ids:
+    # Scan DOM links for documentation / guide / API routes
+    dom_hrefs = re.findall(r'<a\s+[^>]*href=["\']([^"\']+)["\']', html, re.I)
+    doc_links = [h for h in dom_hrefs if any(k in h.lower() for k in ["/docs", "/doc", "/api", "/guide", "/developers", "/help", "/reference"])]
+
+    # 1. Conditioned Proactive Trigger: /llms.txt
+    # Condition: Site has documentation/API assets discovered, BUT no /llms.txt manifest exists
+    if doc_links and not llms_txt:
+        sample_doc = doc_links[0] if doc_links[0].startswith("http") else f"{origin}{doc_links[0]}"
         llms_artifact = (
             f"# {page_title} AI Context Manifest\n"
             f"> {meta_desc}\n\n"
             f"## Canonical Resources\n"
             f"- {origin}: Official Homepage\n"
-            f"- {origin}/docs: Developer & Product Documentation\n"
+            f"- {sample_doc}: Developer & Product Documentation\n"
             f"- {origin}/llms-full.txt: Full uncompressed documentation for frontier models\n"
         )
         proactive.append({
             "id": "F-PROACT-001",
-            "title": "[Proactive Opportunity] Deploy turnkey /llms.txt AI context manifest",
+            "title": "[Proactive Opportunity] Deploy /llms.txt manifest for discovered documentation assets",
             "severity": "medium",
-            "evidence": "No /llms.txt found at origin root; AI assistants must parse and summarize raw HTML payloads.",
+            "evidence": f"Discovered {len(doc_links)} documentation/API route(s) (e.g. '{doc_links[0]}'), but no /llms.txt file exists at origin root to guide AI inference engines.",
             "suggested_action": {
                 "summary": (
-                    f"Deploy this turnkey /llms.txt manifest at your website root to provide frontier models with instant, structured context:\n\n"
+                    f"Deploy this turnkey /llms.txt manifest at your website root to index your {len(doc_links)} documentation routes for instant frontier model ingestion:\n\n"
                     f"```markdown\n{llms_artifact}```"
                 ),
                 "priority": "medium"
             }
         })
 
-    # 2. Turnkey Artifact: Pre-Populated Conversational FAQPage JSON-LD
+    # 2. Conditioned Proactive Trigger: Conversational FAQPage JSON-LD
+    # Condition: Page contains actual Q&A questions/FAQ in text, BUT lacks Schema.org FAQPage/QAPage
     has_faq_schema = "faqpage" in html.lower() or "qapage" in html.lower()
-    if not has_faq_schema and "F-CRAWL-001" not in existing_finding_ids:
+    # Find natural question sentences in text
+    question_matches = re.findall(r'(?:<h[2-4]\b[^>]*>|<p><strong>|<dt>)([^<]*\?)(?:<\/h[2-4]>|<\/strong><\/p>|<\/dt>)', html, re.I)
+    has_faq_keyword = bool(re.search(r'\b(frequently asked questions|faq|common questions)\b', html, re.I))
+
+    if (question_matches or has_faq_keyword) and not has_faq_schema:
+        sample_q = question_matches[0].strip() if question_matches else f"What does {page_title} do?"
         faq_artifact = (
             f'<script type="application/ld+json">\n'
             f'{{\n'
@@ -65,7 +85,7 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
             f'  "mainEntity": [\n'
             f'    {{\n'
             f'      "@type": "Question",\n'
-            f'      "name": "What core service does {page_title} provide?",\n'
+            f'      "name": "{sample_q}",\n'
             f'      "acceptedAnswer": {{\n'
             f'        "@type": "Answer",\n'
             f'        "text": "{meta_desc}"\n'
@@ -77,21 +97,24 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
         )
         proactive.append({
             "id": "F-PROACT-002",
-            "title": "[Proactive Opportunity] Inject conversational FAQPage JSON-LD schema",
+            "title": "[Proactive Opportunity] Structure discovered Q&A content into FAQPage JSON-LD",
             "severity": "medium",
-            "evidence": "Page lacks structured FAQPage or QAPage markup optimized for direct question answering.",
+            "evidence": f"Detected {len(question_matches)} natural question(s) in body copy (e.g. '{sample_q}'), but page lacks structured FAQPage markup.",
             "suggested_action": {
                 "summary": (
-                    f"Embed this pre-populated Schema.org FAQPage snippet directly in your HTML <head> to maximize inclusion in AI Overview and Perplexity direct answer cards:\n\n"
+                    f"Embed this pre-populated Schema.org FAQPage snippet in your HTML <head> to enable zero-shot answer extraction in Perplexity and ChatGPT Search:\n\n"
                     f"```html\n{faq_artifact}\n```"
                 ),
                 "priority": "medium"
             }
         })
 
-    # 3. Turnkey Artifact: Entity Knowledge Graph Anchoring Graph
+    # 3. Conditioned Proactive Trigger: Knowledge Graph sameAs Bridge
+    # Condition: Commercial entity signals observed (pricing/product/about links), BUT missing sameAs links
     has_sameas = "sameas" in html.lower()
-    if not has_sameas and "F-CRAWL-001" not in existing_finding_ids:
+    is_commercial = any(h for h in dom_hrefs if any(k in h.lower() for k in ["/pricing", "/product", "/plans", "/about", "/company"]))
+
+    if is_commercial and not has_sameas:
         org_artifact = (
             f'<script type="application/ld+json">\n'
             f'{{\n'
@@ -110,47 +133,53 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
         )
         proactive.append({
             "id": "F-PROACT-003",
-            "title": "[Proactive Opportunity] Bridge brand entity to Knowledge Graph registries",
-            "severity": "low",
-            "evidence": "No entity disambiguation links detected tying the domain to external canonical registries.",
+            "title": "[Proactive Opportunity] Bridge commercial brand entity to Knowledge Graph registries",
+            "severity": "medium",
+            "evidence": "Commercial product/pricing signals detected, but no Schema.org sameAs links ground the brand to external knowledge graph registries.",
             "suggested_action": {
                 "summary": (
                     f"Anchor the brand identity across LLM parametric memory by embedding this Schema.org Organization template with populated sameAs URIs:\n\n"
                     f"```html\n{org_artifact}\n```"
                 ),
-                "priority": "low"
+                "priority": "medium"
             }
         })
 
-    # 4. Turnkey Artifact: Semantic Citation Anchor Snippet
-    headings_with_id = len(re.findall(r'<h[2-4]\b[^>]*\bid=["\'][^"\']+["\']', html, re.I))
-    if headings_with_id < 3 and "F-CRAWL-001" not in existing_finding_ids:
-        anchor_example = (
-            f'<!-- Example semantic citation anchors for AI deep-linking -->\n'
-            f'<h2 id="overview">Platform Overview</h2>\n'
-            f'<h2 id="capabilities">Core Capabilities & Specifications</h2>\n'
-            f'<h2 id="pricing-tiers">Pricing & Commercial Terms</h2>'
-        )
-        proactive.append({
-            "id": "F-PROACT-004",
-            "title": "[Proactive Opportunity] Add semantic anchor IDs to key sections for direct AI citations",
-            "severity": "low",
-            "evidence": f"Found only {headings_with_id} subheadings with HTML id attributes; conversational AI agents cannot deep-link users directly to cited claims.",
-            "suggested_action": {
-                "summary": (
-                    f"Attach persistent semantic id attributes to all major H2/H3 section headers so AI assistants can cite and deep-link directly to factual claims:\n\n"
-                    f"```html\n{anchor_example}\n```"
-                ),
-                "priority": "low"
-            }
-        })
+    # 4. Conditioned Proactive Trigger: Semantic Citation Anchor IDs
+    # Condition: Multiple subheadings (>=2) exist, BUT < 25% have HTML id attributes
+    subheadings = re.findall(r'<h[2-4]\b([^>]*)>(.*?)<\/h[2-4]>', html, re.I | re.DOTALL)
+    if len(subheadings) >= 2:
+        anchored_count = sum(1 for attrs, _ in subheadings if re.search(r'\bid=["\'][^"\']+["\']', attrs, re.I))
+        pct_anchored = (anchored_count / len(subheadings)) * 100
+        if pct_anchored < 25:
+            anchor_example = (
+                f'<!-- Example semantic citation anchors for AI deep-linking -->\n'
+                f'<h2 id="overview">Platform Overview</h2>\n'
+                f'<h2 id="features">Core Capabilities & Specifications</h2>\n'
+                f'<h2 id="pricing">Pricing & Commercial Terms</h2>'
+            )
+            proactive.append({
+                "id": "F-PROACT-004",
+                "title": "[Proactive Opportunity] Add semantic anchor IDs to key sections for direct AI citations",
+                "severity": "medium",
+                "evidence": f"Found {len(subheadings)} section headings, but only {anchored_count} ({pct_anchored:.0f}%) possess HTML id attributes; conversational AI agents cannot deep-link users directly to cited claims.",
+                "suggested_action": {
+                    "summary": (
+                        f"Attach persistent semantic id attributes to your {len(subheadings)} section headers so AI assistants can cite and deep-link directly to factual claims:\n\n"
+                        f"```html\n{anchor_example}\n```"
+                    ),
+                    "priority": "medium"
+                }
+            })
 
     return proactive
 
 if __name__ == "__main__":
     sample_bundle = {
-        "html": "<html><head><title>Apex Workflow</title><meta name='description' content='Apex powers autonomous data pipelines.'></head><body><h1>Apex</h1></body></html>",
+        "html": "<html><head><title>Apex Workflow</title></head><body><h1>Apex</h1><a href='/docs'>Docs</a><h2>Overview</h2><p>How do I start?</p></body></html>",
         "url": "https://apexflow.io"
     }
     p = generate_proactive_actions(sample_bundle, set())
-    print(f"Generated {len(p)} proactive actions with turnkey code blocks.")
+    print(f"Conditioned proactive suggestions generated: {len(p)}")
+    for item in p:
+        print(" -", item["title"])

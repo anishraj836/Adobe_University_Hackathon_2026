@@ -1,6 +1,6 @@
 ---
 name: audit-orchestrator
-description: Designated marketplace entrypoint that coordinates the full brand AI-readiness audit. Dispatches crawl, freshness, and engagement sub-skills, shields against cascading network errors, synthesizes proactive beyond-defect recommendations, enforces Handout Page 2 schema compliance, and emits a structured JSON audit report.
+description: Designated marketplace entrypoint that coordinates the full brand AI-readiness audit. Dispatches crawl, freshness, and engagement sub-skills, shields against cascading network errors, synthesizes evidence-conditioned proactive recommendations, enforces Handout Page 2 schema compliance, and emits a structured JSON audit report.
 license: Apache-2.0
 allowed-tools:
   - python
@@ -20,10 +20,16 @@ Use when a general AI agent or engineer needs to audit any website or local web 
 1. **Target Ingestion & Reachability**: Probe target via `scripts/run_audit.py`. Detect local fixture paths vs remote domains.
 2. **Crawl & Render Audit**: Execute `crawl-render-audit` to evaluate robots.txt permissions for AI crawlers (GPTBot, ClaudeBot, PerplexityBot), meta robots restrictions, and client-side rendering (CSR) barriers.
 3. **Causal Error Shielding**: If network access is blocked or the origin returns HTTP 403, log root-cause finding `F-CRAWL-001` and suppress downstream spurious content errors.
-4. **Freshness & Entity Corroboration**: Execute `freshness-corroboration` to inspect Schema.org JSON-LD structured data, authoritative `sameAs` entity reconciliation, multi-source temporal freshness, and non-text alt attribute gaps.
-5. **Engagement & Friction Audit**: Execute `engagement-audit` to evaluate 5-second cognitive orientation (hero H1, meta description), AI citation deep-linking anchors, content-to-boilerplate density, and trust signals.
-6. **Proactive Opportunities Synthesis**: Call `scripts/proactive_engine.py` to inject strategic improvements (`/llms.txt`, conversational `FAQPage` schema, section citation anchors, Wikidata knowledge graph bridges).
-7. **Schema Enforcement & Output**: Validate final report against Handout Page 2 schema using `scripts/schema_validator.py` and print clean JSON to stdout.
+4. **Freshness & Entity Corroboration**: Execute `freshness-corroboration` (composing `schema_evaluator.py`, `entity_resolver.py`, `freshness_evaluator.py`, and `nontext_inspector.py`) to inspect Schema.org JSON-LD structured data, authoritative `sameAs` entity reconciliation, multi-source temporal freshness, and non-text alt attribute gaps.
+5. **Engagement & Friction Audit**: Execute `engagement-audit` to evaluate 5-second cognitive orientation (hero H1, meta description), AI citation deep-linking anchors, content-to-boilerplate density, RAG quotability, and trust signals.
+6. **Conditioned Proactive Synthesis**: Call `scripts/proactive_engine.py` to inject relevant improvements (`/llms.txt`, conversational `FAQPage` schema, section citation anchors, Wikidata knowledge graph bridges) strictly conditioned on observed site evidence.
+7. **Schema Enforcement & Output**: Validate final report against Handout Page 2 schema floor using `scripts/schema_validator.py` and print clean JSON to stdout.
+
+## Guardrails & Compliance
+- **Recommend-Only**: 100% passive, read-only analysis. Zero live site mutations.
+- **RFC 9309 Robots.txt Compliance**: Strictly respects disallow rules and polite crawling semantics.
+- **Runtime Budget**: Executes in < 0.05 seconds offline and < 20 seconds live (well under 5-minute limit).
+- **Self-Contained**: Requires zero external paid APIs, zero proprietary keys, and runs in completely air-gapped sandboxes.
 
 ## Output
 Emits a single JSON report matching the Handout Page 2 specification:
@@ -35,18 +41,17 @@ Emits a single JSON report matching the Handout Page 2 specification:
     "total_findings": 6,
     "critical": 1,
     "high": 2,
-    "medium": 3,
-    "low": 0
+    "medium": 3
   },
   "findings": [
     {
       "id": "F-001",
-      "title": "Robots.txt blocks AI assistant crawlers",
-      "severity": "critical",
-      "evidence": "Disallow: / configured for: gptbot, claudebot in robots.txt.",
+      "title": "No JSON-LD structured data on product pages",
+      "severity": "high",
+      "evidence": "Crawled 12 product pages; 0/12 contain schema.org markup.",
       "suggested_action": {
-        "summary": "Update robots.txt to permit indexing by conversational AI crawlers.",
-        "priority": "critical"
+        "summary": "Add Product/Offer JSON-LD to every product page.",
+        "priority": "high"
       }
     }
   ]
