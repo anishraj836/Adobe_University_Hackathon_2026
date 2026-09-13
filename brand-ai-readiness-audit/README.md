@@ -175,7 +175,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 
 ### Running the Test & Benchmark Suites
 ```bash
-# Automated regression unit tests (29 tests in ~0.04s)
+# Automated regression unit tests (33 tests in ~0.06s)
 python3 test_audit.py
 
 # Full 5-step benchmark scorecard (latency percentiles, ground truth accuracy)
@@ -217,6 +217,10 @@ Every false-positive safeguard in this marketplace is backed by a bidirectional 
 | **Search Form CTA Exemption** | Treats any `<form>` with a submit button or `<button>` as a commercial conversion CTA, letting pages with only site search pass without CTAs. | Disqualifies search, query, and filter forms via `role="search"`, `action="...search..."`, and `name="q"`, accurately enforcing `F-ENGAGE-011` when zero actual conversion pathways exist. | `test_27_search_form_cta_exemption_guard` |
 | **AI Crawler Taxonomy & Severity** | Conflates foundation model training crawlers with real-time retrieval crawlers, assigning critical severity to training-only blocks. | Distinguishes Tier 1 Citation Crawlers (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`) from Tier 2 Training Crawlers (`GPTBot`, `ClaudeBot`, `Google-Extended`). Blocks on live citation bots trigger `critical`, while training-only blocks trigger `high`. | `test_28_ai_crawler_taxonomy_training_vs_citation_severity` |
 | **Transient Network Probe Blip** | Emits a critical cloaking finding (`F-CRAWL-002`) on a single transient 429 or 503 response. | Implements bounded 1-retry backoff for transient 429/503 responses before flagging network cloaking, preventing false alarms from CDN rate-limits. | `test_29_transient_probe_retry_guard` |
+| **Multilingual Word Counting (CJK/Thai)** | Uses whitespace `split()` which collapses continuous scripts (Chinese, Japanese, Thai, Korean) to 0-1 words, triggering false CSR barrier findings. | Language-agnostic `count_words()` parses CJK Unified Ideographs, Kana, Hangul, and Thai Unicode ranges, properly measuring content volume across all global scripts. | `test_30_multilingual_cjk_word_count_guard` |
+| **Qualitative Schema Validation** | Treats any declared JSON-LD as complete, missing empty Product offerings or broken FAQPage structures. | Inspects internal node semantics: flags empty Product offerings (`F-FRESH-010`), broken FAQPage Q&A pairs (`F-FRESH-011`), and uncredited editorial articles (`F-FRESH-012`). | `test_31_qualitative_schema_validation` |
+| **Unencrypted HTTP Transport** | Ignores transport security, allowing unencrypted HTTP sites that AI indexers deprioritize to pass without warning. | Gated live protocol audit flags insecure HTTP with `F-CRAWL-009`, while safely exempting local sandbox/file fixtures. | `test_32_unencrypted_http_check_guard` |
+| **Executive Summary Synthesis** | Outputs raw numeric tally counts, providing non-technical leaders and judges zero contextual synthesis. | `build_markdown_report` dynamically generates a high-signal, 1-2 sentence plain-English strategic narrative above the numeric counts. | `test_33_markdown_executive_narrative_synthesis` |
 
 These tests demonstrate that the marketplace discriminates between genuine architectural barriers and intentional, standard web design patterns.
 

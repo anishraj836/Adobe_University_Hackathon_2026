@@ -263,12 +263,20 @@ def discover_subpages(html: str, origin: str, robots_txt: str, max_subpages: int
         if not is_path_allowed_by_robots(path, robots_txt):
             continue
         sub_resp = fetch_url(full_url, user_agent=BROWSER_UA, timeout=4)
-        if sub_resp.get("status") == 200:
+        sub_status = sub_resp.get("status", 0)
+        if sub_status == 200:
             subpages.append({
                 "url": full_url,
                 "path": path,
                 "html": sub_resp.get("html", ""),
                 "status": 200
+            })
+        elif sub_status in (404, 500):
+            subpages.append({
+                "url": full_url,
+                "path": path,
+                "html": "",
+                "status": sub_status
             })
 
     return subpages

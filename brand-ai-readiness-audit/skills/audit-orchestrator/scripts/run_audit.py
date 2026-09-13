@@ -28,6 +28,39 @@ from audit_engagement import audit_engagement
 from proactive_engine import generate_proactive_actions
 from schema_validator import validate_report_schema
 
+def synthesize_executive_narrative(summary: dict, findings: list) -> str:
+    """Generate a high-signal 1-2 sentence plain-English strategic synthesis for non-technical executives."""
+    crit = summary.get("critical", 0)
+    high = summary.get("high", 0)
+    total = summary.get("total_findings", 0)
+
+    if total == 0:
+        return "This website exhibits exceptional AI readiness across both off-site discoverability (open crawler access, rich Schema.org markup, verifiable entity corroboration) and on-site visitor conversion pathways."
+
+    titles_lower = " ".join([f.get("title", "").lower() for f in findings])
+    has_crawl_barrier = any(kw in titles_lower for kw in ["robots.txt", "crawler", "cloaking", "client-side rendering", "unreachable"])
+    has_schema_gap = any(kw in titles_lower for kw in ["schema.org", "json-ld", "entity", "temporal", "freshness"])
+    has_conversion_gap = any(kw in titles_lower for kw in ["cta", "conversion", "friction", "trust", "navigation", "orientation"])
+
+    narrative_parts = []
+    if crit > 0:
+        if has_crawl_barrier:
+            narrative_parts.append("This site suffers from severe architectural barriers (e.g. AI crawler restrictions or unrendered client-side mounts) that render its primary content invisible to real-time conversational search engines.")
+        else:
+            narrative_parts.append("This site suffers from critical discoverability defects that prevent conversational AI agents from reliably extracting core brand facts.")
+    elif high > 0:
+        if has_schema_gap:
+            narrative_parts.append("While accessible to crawlers, this site lacks essential semantic data structures (Schema.org markup, entity corroboration, or explicit freshness signals) required for reliable citation in AI answers.")
+        else:
+            narrative_parts.append("This site is discoverable by AI indexers, but exhibits significant structural and content fidelity gaps that diminish AI citation confidence.")
+    else:
+        narrative_parts.append("This site maintains solid baseline accessibility and markup, but possesses moderate optimization gaps in visitor orientation, heading hierarchy, or conversion routing for AI-referred traffic.")
+
+    if has_conversion_gap and (crit > 0 or high > 0):
+        narrative_parts.append("Additionally, arriving AI referrals face on-site friction in post-click orientation or conversion routing, increasing bounce rates.")
+
+    return " ".join(narrative_parts)
+
 def build_markdown_report(report: dict) -> str:
     """Format audit report into clean, executive-ready markdown."""
     site = report.get("site", "unknown")
@@ -39,6 +72,7 @@ def build_markdown_report(report: dict) -> str:
     md.append(f"# Brand AI-Readiness Audit Report: `{site}`")
     md.append(f"**Audited At:** {audited_at}\n")
     md.append("## Executive Summary")
+    md.append(f"> {synthesize_executive_narrative(summary, findings)}\n")
     md.append(f"- **Total Findings:** {summary.get('total_findings', 0)}")
     md.append(f"- **Critical:** {summary.get('critical', 0)}")
     md.append(f"- **High:** {summary.get('high', 0)}")

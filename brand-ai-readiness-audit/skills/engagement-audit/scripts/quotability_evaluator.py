@@ -39,10 +39,10 @@ def evaluate_quotability(html: str, brand_hint: str = "") -> dict:
         else:
             prose = re.sub(r'<[^>]+>', ' ', part_clean)
             prose = re.sub(r'\s+', ' ', prose).strip()
-            words = prose.split()
+            tokens = re.findall(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\u0e00-\u0e7f]|[^\s\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\u0e00-\u0e7f]+', prose)
             buffer = []
             char_count = 0
-            for w in words:
+            for w in tokens:
                 buffer.append(w)
                 char_count += len(w) + 1
                 if char_count >= 500:
@@ -50,7 +50,7 @@ def evaluate_quotability(html: str, brand_hint: str = "") -> dict:
                     chunks.append(chunk_text)
                     buffer = []
                     char_count = 0
-            if buffer and len(buffer) > 15:
+            if buffer and (len(buffer) > 15 or (len(buffer) > 5 and any(ord(c) > 0x2e80 for c in "".join(buffer)))):
                 chunks.append(f"[{current_heading}] " + " ".join(buffer))
 
     if len(chunks) < 3:

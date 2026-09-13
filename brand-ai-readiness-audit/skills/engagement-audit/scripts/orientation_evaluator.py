@@ -14,6 +14,8 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
     findings = []
     h1_matches = re.findall(r'<h1\b[^>]*>(.*?)<\/h1>', html, re.I | re.DOTALL)
     meta_desc_match = re.search(r'<meta\s+name=["\']description["\']\s+content=["\']([^"\']+)["\']', html, re.I)
+    if not meta_desc_match:
+        meta_desc_match = re.search(r'<meta\s+(?:property|name)=["\']og:description["\']\s+content=["\']([^"\']+)["\']', html, re.I)
 
     brand_hint = ""
     if h1_matches:
@@ -67,7 +69,7 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
             "id": "F-ENGAGE-004",
             "title": "Missing or empty meta description",
             "severity": "medium",
-            "evidence": "No valid <meta name='description'> tag found in document <head>.",
+            "evidence": "No valid <meta name='description'> or <meta property='og:description'> tag found in document <head>.",
             "suggested_action": {
                 "summary": "Add a high-signal meta description (120-160 characters) summarizing page purpose for search snippets and AI overview cards.",
                 "priority": "medium"

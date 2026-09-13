@@ -17,12 +17,13 @@ sys.path.insert(0, os.path.join(BASE_DIR, "skills/crawl-render-audit/scripts"))
 sys.path.insert(0, os.path.join(BASE_DIR, "skills/freshness-corroboration/scripts"))
 sys.path.insert(0, os.path.join(BASE_DIR, "skills/engagement-audit/scripts"))
 
-from run_audit import run_audit
+from run_audit import run_audit, build_markdown_report
 from schema_validator import validate_report_schema
 from proactive_engine import generate_proactive_actions
 from freshness_evaluator import evaluate_freshness
+from schema_evaluator import evaluate_schema
 from entity_resolver import evaluate_entity
-from audit_crawl import audit_crawl, parse_robots_records, is_bot_blocked
+from audit_crawl import audit_crawl, parse_robots_records, is_bot_blocked, count_words
 from conversion_evaluator import evaluate_conversion, has_commercial_intent, check_primary_cta
 from quotability_evaluator import evaluate_quotability
 from filler_evaluator import evaluate_filler
@@ -853,6 +854,106 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
                 # audit_crawl should NOT emit F-CRAWL-002
                 findings = audit_crawl(bundle)
                 self.assertFalse(any(f["id"] == "F-CRAWL-002" for f in findings), "Transient 429 must not emit F-CRAWL-002 after successful retry")
+
+    def test_30_multilingual_cjk_word_count_guard(self):
+        """Generalization guard: Non-space-delimited languages (Chinese, Japanese, Thai, Korean) must not be miscalculated as having 0-1 words or flagged as CSR barriers."""
+        # 120 continuous Chinese characters with zero spaces
+        cjk_text = "欢迎访问我们的企业级智能代理架构平台。我们提供高可用分布式实时路由、零数据泄露企业级隐私保障以及毫秒级确定性执行。现代工程团队信赖我们的基础设施以构建弹性的AI工作流。"
+        self.assertEqual(len(cjk_text.split()), 1, "Naive split must count as 1 word (demonstrating the vulnerability)")
+        counted = count_words(cjk_text)
+        self.assertGreaterEqual(counted, 80, f"Expected count_words to detect substantive CJK content, got {counted}")
+
+        # Test bundle with CJK text and <div id="root">
+        cjk_bundle = {
+            "status": 200,
+            "url": "https://example.cn",
+            "html": f"<!DOCTYPE html><html><body><div id='root'></div><main><p>{cjk_text}</p></main></body></html>",
+            "robots_txt": "",
+            "headers": {},
+            "bot_probe_status": 200,
+            "is_local": True
+        }
+        findings = audit_crawl(cjk_bundle)
+        self.assertFalse(any(f["id"] == "F-CRAWL-006" for f in findings), "False positive: Substantive CJK content page falsely flagged as CSR barrier!")
+
+    def test_31_qualitative_schema_validation(self):
+        """Detection accuracy guard: Incomplete declared schemas (empty Product offers or broken FAQPage Q&A) must be flagged with type-specific findings."""
+        # Case A: Declared Product schema lacking offers and pricing
+        empty_prod_html = """
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": "Cloud Storage Subscription"
+        }
+        </script>
+        """
+        findings_prod, _, _ = evaluate_schema(empty_prod_html)
+        self.assertTrue(any(f["id"] == "F-FRESH-010" for f in findings_prod), "True positive missed: Empty Product schema lacking offers was not flagged!")
+
+        # Case B: Declared FAQPage schema lacking valid acceptedAnswer
+        empty_faq_html = """
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {"@type": "Question", "name": "What is the uptime?"}
+          ]
+        }
+        </script>
+        """
+        findings_faq, _, _ = evaluate_schema(empty_faq_html)
+        self.assertTrue(any(f["id"] == "F-FRESH-011" for f in findings_faq), "True positive missed: FAQPage lacking acceptedAnswer was not flagged!")
+
+    def test_32_unencrypted_http_check_guard(self):
+        """Security signal guard: Plain unencrypted HTTP live URLs must trigger F-CRAWL-009, while HTTPS URLs and local fixtures remain clean."""
+        # Case A: Live URL over plain HTTP
+        http_bundle = {
+            "status": 200,
+            "url": "http://insecure-example.com",
+            "html": "<html><body><h1>Example</h1><p>Substantive text content here.</p></body></html>",
+            "robots_txt": "",
+            "headers": {},
+            "bot_probe_status": 200,
+            "is_local": False
+        }
+        findings_http = audit_crawl(http_bundle)
+        self.assertTrue(any(f["id"] == "F-CRAWL-009" for f in findings_http), "Unencrypted live HTTP must trigger F-CRAWL-009")
+
+        # Case B: Live URL over HTTPS
+        https_bundle = {
+            "status": 200,
+            "url": "https://secure-example.com",
+            "html": "<html><body><h1>Example</h1><p>Substantive text content here.</p></body></html>",
+            "robots_txt": "",
+            "headers": {},
+            "bot_probe_status": 200,
+            "is_local": False
+        }
+        findings_https = audit_crawl(https_bundle)
+        self.assertFalse(any(f["id"] == "F-CRAWL-009" for f in findings_https), "HTTPS must not trigger F-CRAWL-009")
+
+    def test_33_markdown_executive_narrative_synthesis(self):
+        """Output design guard: build_markdown_report synthesizes a plain-English strategic narrative above the numeric counts."""
+        mock_report = {
+            "site": "testbrand.com",
+            "audited_at": "2026-09-13T20:00:00Z",
+            "summary": {"total_findings": 3, "critical": 1, "high": 1, "medium": 1},
+            "findings": [
+                {
+                    "id": "F-001",
+                    "title": "Robots.txt blocks AI citation & retrieval crawlers",
+                    "severity": "critical",
+                    "evidence": "Disallow: / blocks OAI-SearchBot",
+                    "suggested_action": {"summary": "Allow OAI-SearchBot", "priority": "critical"}
+                }
+            ]
+        }
+        md_text = build_markdown_report(mock_report)
+        self.assertIn("## Executive Summary", md_text)
+        self.assertIn("> This site suffers from severe architectural barriers", md_text)
+        self.assertIn("- **Total Findings:** 3", md_text)
 
 if __name__ == "__main__":
     unittest.main()

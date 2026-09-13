@@ -39,6 +39,21 @@ def strip_tags(html: str) -> str:
     clean = re.sub(r'<[^>]+>', ' ', clean)
     return re.sub(r'\s+', ' ', clean).strip()
 
+def count_words(text: str) -> int:
+    """
+    Language-agnostic word count supporting both space-delimited (Latin/Cyrillic/Arabic)
+    and continuous non-space scripts (CJK Ideographs, Hiragana, Katakana, Hangul, Thai).
+    Prevents false-positive CSR barrier and thin-content flags on international sites.
+    """
+    if not text:
+        return 0
+    # Match non-space ideographic & syllabic characters
+    cjk_thai_chars = len(re.findall(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\u0e00-\u0e7f]', text))
+    # Strip non-space scripts before splitting to avoid double-counting
+    ascii_clean = re.sub(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\u0e00-\u0e7f]', ' ', text)
+    space_words = len(ascii_clean.split())
+    return space_words + cjk_thai_chars
+
 def parse_robots_records(robots_text: str) -> dict:
     """
     RFC 9309 parser: extracts records for each User-agent, recording both allow and disallow paths.
@@ -319,8 +334,7 @@ def audit_crawl(bundle: dict) -> list[dict]:
     body_match = re.search(r'<body\b[^>]*>(.*?)<\/body>', html, re.DOTALL | re.IGNORECASE)
     body_content = body_match.group(1) if body_match else html
     visible_text = strip_tags(body_content)
-    words = visible_text.split()
-    word_count = len(words)
+    word_count = count_words(visible_text)
 
     has_empty_root = bool(re.search(r'<div\s+id=["\'](root|app|__next)["\']\s*>\s*<\/div>', html, re.I))
 
@@ -371,6 +385,20 @@ def audit_crawl(bundle: dict) -> list[dict]:
             "evidence": "Neither /sitemap.xml was accessible nor was a Sitemap: directive declared in robots.txt.",
             "suggested_action": {
                 "summary": "Generate an automated sitemap.xml listing all canonical pages and declare its URL in robots.txt.",
+                "priority": "medium"
+            }
+        })
+
+    # 7. Unencrypted HTTP Transport Check (Security & AI Discovery Deprioritization)
+    site_url = bundle.get("url", "")
+    if not is_local and site_url.lower().startswith("http://"):
+        findings.append({
+            "id": "F-CRAWL-009",
+            "title": "Website served over unencrypted HTTP protocol",
+            "severity": "medium",
+            "evidence": f"Target URL ({site_url}) is served over unencrypted HTTP without TLS encryption. AI search crawlers and modern indexers deprioritize unencrypted origins.",
+            "suggested_action": {
+                "summary": "Deploy a valid SSL/TLS certificate and enforce an automatic 301 redirect from HTTP to HTTPS.",
                 "priority": "medium"
             }
         })

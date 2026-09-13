@@ -18,6 +18,7 @@ if CRAWL_SCRIPTS not in sys.path:
     sys.path.insert(0, CRAWL_SCRIPTS)
 
 from http_fetcher import fetch_target_bundle
+from audit_crawl import count_words
 from orientation_evaluator import evaluate_orientation
 from hierarchy_evaluator import evaluate_hierarchy
 from quotability_evaluator import evaluate_quotability
@@ -45,7 +46,7 @@ def audit_engagement(bundle: dict) -> list:
 
     # 3. Substantive Content Density vs Boilerplate
     substantive_text = strip_chrome(html)
-    substantive_words = len(substantive_text.split())
+    substantive_words = count_words(substantive_text)
 
     if substantive_words < 120 and len(html) > 800:
         findings.append({
@@ -111,6 +112,22 @@ def audit_engagement(bundle: dict) -> list:
     # 7. User Journey & Conversion Friction Evaluation
     conversion_findings = evaluate_conversion(html)
     findings.extend(conversion_findings)
+
+    # 8. Broken Internal Route Check (Dead-End AI Referral Risk)
+    is_local = bundle.get("is_local", False)
+    dead_subpages = [sp for sp in bundle.get("subpages", []) if sp.get("status") in (404, 500)]
+    if not is_local and dead_subpages:
+        paths = [sp.get("path") for sp in dead_subpages]
+        findings.append({
+            "id": "F-ENGAGE-017",
+            "title": "High-priority internal navigation link returned HTTP error dead end",
+            "severity": "medium",
+            "evidence": f"Followed prioritized navigation routes from homepage; {len(dead_subpages)} link(s) returned HTTP error: {', '.join(paths)}.",
+            "suggested_action": {
+                "summary": "Fix broken internal links or deploy proper 301 redirects to avoid dead ends for AI crawlers and referred users.",
+                "priority": "medium"
+            }
+        })
 
     return findings
 
