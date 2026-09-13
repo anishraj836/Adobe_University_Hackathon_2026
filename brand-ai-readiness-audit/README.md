@@ -5,38 +5,38 @@ An `agentskills.io`-compliant Agent Skill Marketplace enabling general AI agents
 1. **Off-site AI Discoverability**: Why a brand isn't found, trusted, or cited by AI search engines (ChatGPT, Claude, Perplexity, Gemini).
 2. **On-site Engagement**: Why visitors referred from conversational AI bounce or fail to convert.
 
-Emits a machine-readable, schema-compliant JSON report with concrete evidence, assigned severities (`critical`, `high`, `medium`, `low`), and prioritized suggested actions (including turnkey proactive improvements).
+Emits a machine-readable, schema-compliant JSON report with concrete evidence, assigned severities (`critical`, `high`, `medium`), and prioritized suggested actions (including turnkey proactive improvements).
 
 ---
 
-## 1. The 4 Battle-Hardened Key Differentiators
+## 1. Technical Differentiators & Mechanism-Sound Heuristics
 
 Unlike generic SEO checkers that merely look at legacy `<title>` tags or word counts, our marketplace directly implements the underlying mechanics from **Round 2 Appendices B, C, D, and F**:
 
-### ★ Diff 1: LLM RAG Citation & Quotability Engine (Round 2 Appendix B & C)
-- **The Problem**: Neural retrieval models (dense vector + BM25) chunk documents into ~500-character windows. If key facts rely on unresolved anaphora (*"It provides 99.9% uptime"*, *"They feature zero-knowledge encryption"*), retrieval models score the passage poorly and LLMs refuse to cite the brand.
-- **Battle-Hardened Safeguards**:
+### ★ Diff 1: Deterministic Passage Quotability & Reference Resolution Heuristic (Atomic Fact Self-Containment per Appendix B & C)
+- **The Problem**: Search and retrieval systems chunk documents into ~500-character windows. If key facts rely on unresolved anaphora (*"It provides 99.9% uptime"*, *"They feature zero-knowledge encryption"*), retrievers score the passage poorly and AI assistants refuse to cite the brand.
+- **Safeguards**:
   - *Scope Gating*: Restricted strictly to technical documentation and informational containers (`<main>`, `<article>`, `[role="main"]`, `<dl>`, `<table>`, `.docs`, `.faq`), excluding narrative founder letters, team stories, and editorial blogs.
-  - *Hierarchical Context Injection*: Every chunk is prepended with its nearest parent heading (`H1 > H2 > H3`), modeling modern hierarchical retrieval (LangChain/LlamaIndex) so heading-anchored chunks pass cleanly.
+  - *Hierarchical Context Injection*: Every chunk is prepended with its nearest parent heading (`H1 > H2 > H3`), modeling passage-level retrieval and reference resolution so heading-anchored chunks pass cleanly.
   - *Expletive Pronoun Filter*: Excludes dummy subjects (*"It is essential that..."*, *"It takes 5 minutes..."*).
 
-### ★ Diff 2: Substantive Lexical Density & Anti-Filler Engine (Round 2 Appendix F)
+### ★ Diff 2: Substantive Lexical Density & Anti-Fluff Analysis (LDR per Appendix F)
 - **The Problem**: Appendix F demonstrates that AI summarizers drop critical transactional facts when surrounded by low-value filler. On web pages, corporate fluff (*"seamlessly synergizing next-gen paradigms"*) dilutes substantive semantic density, causing LLM summarizers to drop core offerings.
-- **Battle-Hardened Safeguards**:
+- **Safeguards**:
   - *Hero Zone Exemption*: Hero sections, H1 headlines, and marketing banners are 100% exempt, fully preserving creative copywriting (Apple, Nike, Linear).
   - *Computational Linguistics*: Uses standard Lexical Density Ratio ($LDR = \frac{\text{content words}}{\text{total words}}$) rather than statistical character entropy.
   - *Informational Anchor Gate*: Only triggers if a technical/feature section contains **zero quantified tokens** (numbers, technical specs, protocols, currencies, percentages) AND is saturated with abstract buzzwords. A single concrete spec passes the section.
 
 ### ★ Diff 3: Entity Ambiguity & On-Site Disambiguation Posture (Round 2 Appendix D)
 - **The Problem**: Appendix D states that identical/generic names cause AI systems to confuse entities (e.g. brands named "Pulse", "Forge", "Ramp", "Canvas").
-- **Battle-Hardened Safeguards**:
+- **Safeguards**:
   - *100% Offline & Deterministic*: Zero external API calls, zero SPARQL requests, zero rate-limit or firewall risks in sandboxes.
   - *On-Site Disambiguation Posture*: Audits what the webmaster directly controls: Schema.org `legalName`, explicit `@type` (`FinancialService` vs `SoftwareApplication`), `disambiguatingDescription`, and canonical `sameAs` entity links to official registry profiles. Homonym brands with proper on-site markup pass with flying colors.
 
-### ★ Diff 4: Turnkey Zero-Touch Artifact Synthesis (`proactive_engine.py`)
-- **The Problem**: Legacy checkers emit passive text advice (*"Consider creating an llms.txt"*).
-- **Battle-Hardened Safeguards**:
-  - *Strict Schema Parity*: Generated code artifacts (tailored `/llms.txt`, full Schema.org JSON-LD graph, semantic heading citation IDs) are nested **cleanly inside `suggested_action.summary` via Markdown code blocks**. Root JSON schema retains exactly: `site`, `audited_at`, `summary`, and `findings`. Zero unsolicited root keys.
+### ★ Turnkey Suggested Action Synthesizer (`proactive_engine.py`)
+- **Mechanism**: Rather than emitting passive, generic advice (*"Consider creating an llms.txt"*), the synthesizer delivers drop-in, turnkey code fixes nested cleanly inside `suggested_action.summary` via Markdown code blocks.
+- **Safeguards**:
+  - *Strict Schema Parity*: Suggested actions strictly adhere to Handout Page 2 (`summary` and `priority`). Root JSON schema retains exactly: `site`, `audited_at`, `summary`, and `findings`. Zero unsolicited root keys.
   - *Real Discovered Metadata*: Ingests real extracted page titles, meta descriptions, canonical URLs, and section headings, avoiding hallucinated placeholder text.
 
 ---
@@ -67,9 +67,9 @@ brand-ai-readiness-audit/
     │   ├── SKILL.md
     │   ├── scripts/ (audit_freshness.py, schema_evaluator.py, entity_resolver.py, freshness_evaluator.py, nontext_inspector.py)
     │   └── references/ (jsonld_templates.json, authority_registries.json, polysemy_dictionary.json)
-    └── engagement-audit/              # Audits 5s orientation, RAG quotability, lexical density
+    └── engagement-audit/              # Audits 5s orientation, passage quotability, lexical density, conversion friction
         ├── SKILL.md
-        ├── scripts/ (audit_engagement.py, orientation_evaluator.py, hierarchy_evaluator.py, quotability_evaluator.py, filler_evaluator.py)
+        ├── scripts/ (audit_engagement.py, orientation_evaluator.py, hierarchy_evaluator.py, quotability_evaluator.py, filler_evaluator.py, conversion_evaluator.py)
         └── references/ (orientation_rubric.md, friction_patterns.json, filler_lexicon.json)
 ```
 
@@ -107,7 +107,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 ```bash
 python3 test_audit.py
 ```
-*All 9 regression tests execute in `< 0.03 seconds` offline (< 1 second total offline, < 15 seconds live).*
+*Low-overhead bounded execution: sub-second offline processing (~0.02s typical), bounded stream fetching live.*
 
 ---
 

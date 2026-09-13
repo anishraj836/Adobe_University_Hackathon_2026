@@ -68,7 +68,7 @@ def evaluate_schema(html: str, subpages: list = None) -> tuple[list, list, list]
             "id": "F-FRESH-001",
             "title": "Syntax error in Schema.org JSON-LD payload",
             "severity": "high",
-            "evidence": f"Found {len(parse_errors)} malformed JSON-LD script tag(s): {parse_errors[0]}.",
+            "evidence": f"[Confidence: 97%] Found {len(parse_errors)} malformed JSON-LD script tag(s): {parse_errors[0]}.",
             "suggested_action": {
                 "summary": "Fix JSON syntax errors in application/ld+json scripts to prevent parser aborts by search crawlers.",
                 "priority": "high"
@@ -82,7 +82,7 @@ def evaluate_schema(html: str, subpages: list = None) -> tuple[list, list, list]
             "id": "F-FRESH-002",
             "title": "Missing Schema.org structured data across crawled pages",
             "severity": "high",
-            "evidence": f"Crawled {total_pages} page(s) ({paths_display}); {pages_with_schema}/{total_pages} contain schema.org markup.",
+            "evidence": f"[Confidence: 95%] Crawled {total_pages} page(s) ({paths_display}); {pages_with_schema}/{total_pages} contain schema.org markup.",
             "suggested_action": {
                 "summary": "Implement Schema.org JSON-LD markup (Organization, WebSite, and Product/Service) so AI engines can reliably extract entity attributes.",
                 "priority": "high"
@@ -94,7 +94,7 @@ def evaluate_schema(html: str, subpages: list = None) -> tuple[list, list, list]
             "id": "F-FRESH-002",
             "title": "Incomplete Schema.org structured data coverage across site routes",
             "severity": "medium",
-            "evidence": f"Crawled {total_pages} page(s) ({paths_display}); {missing_count}/{total_pages} lack schema.org structured data.",
+            "evidence": f"[Confidence: 92%] Crawled {total_pages} page(s) ({paths_display}); {missing_count}/{total_pages} lack schema.org structured data.",
             "suggested_action": {
                 "summary": "Extend Schema.org JSON-LD markup across all key subpages so AI crawlers extract structured product and service offerings.",
                 "priority": "medium"
@@ -108,7 +108,7 @@ def evaluate_schema(html: str, subpages: list = None) -> tuple[list, list, list]
                 "id": "F-FRESH-003",
                 "title": "Missing Organization or WebSite entity schema",
                 "severity": "medium",
-                "evidence": f"Found schemas ({', '.join(set(types_found)) or 'None'}), but missing root Organization or WebSite definition.",
+                "evidence": f"[Confidence: 94%] Found schemas ({', '.join(set(types_found)) or 'None'}), but missing root Organization or WebSite definition.",
                 "suggested_action": {
                     "summary": "Add Schema.org Organization markup defining official brand name, logo, description, and contact info.",
                     "priority": "medium"

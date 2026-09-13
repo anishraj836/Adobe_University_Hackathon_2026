@@ -15,5 +15,27 @@
     "/about",
     "/about-us"
   ],
+  "commercial_routes": [
+    "/pricing",
+    "/contact",
+    "/demo",
+    "/docs",
+    "/documentation",
+    "/signup",
+    "/register",
+    "/sales"
+  ],
+  "cta_patterns": [
+    "get started",
+    "sign up",
+    "book a demo",
+    "request a demo",
+    "try for free",
+    "start free trial",
+    "buy now",
+    "contact us",
+    "contact support",
+    "schedule a demo"
+  ],
   "substantive_word_threshold": 150
 }

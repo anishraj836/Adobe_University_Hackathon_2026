@@ -4,7 +4,7 @@ This document provides concrete, worked examples demonstrating the failure modes
 
 ---
 
-## 1. Worked Example 1: Fact Quotability & Entity Binding (Appendices B & C)
+## 1. Worked Example 1: Deterministic Passage Quotability & Reference Resolution Heuristic (Atomic Fact Self-Containment per Appendix B & C)
 
 ### The Underlying Problem (Appendix B & C)
 When an AI assistant (ChatGPT, Perplexity) searches a live webpage to answer a user prompt (e.g., *"What is the transaction throughput of FlowDB?"*), the neural retrieval engine slices the document into ~500-character embedding chunks. If the page distributes facts across paragraphs that rely on unanchored pronouns, the chunk retriever loses the entity reference and the generation model refuses to cite the brand.
@@ -19,10 +19,10 @@ When an AI assistant (ChatGPT, Perplexity) searches a live webpage to answer a u
   <p>Our platform guarantees zero data loss through multi-region replication. It was tested against major cloud outages.</p>
 </main>
 ```
-* **Why it fails in RAG**: When an assistant chunks paragraph 1 (`"[High Performance] It processes over 100,000 queries..."`), the chunk contains the pronoun "It" without the brand entity name ("FlowDB"). The semantic embedding vector reflects a generic claim about an unknown subject. Perplexity drops it because the entity cannot be quoted as a standalone factual assertion.
+* **Why it fails passage retrieval and quotation**: When an assistant chunks paragraph 1 (`"[High Performance] It processes over 100,000 queries..."`), the chunk contains the pronoun "It" without the brand entity name ("FlowDB"). The semantic embedding vector reflects a generic claim about an unknown subject. Perplexity drops it because the entity cannot be quoted as a standalone factual assertion.
 * **Our Audit Flag**:
   - `title`: `"High RAG retrieval failure risk: Substantive facts lack self-contained entity binding"`
-  - `evidence`: `"Simulated 2 RAG retrieval chunks (500 chars); 2/2 (100%) rely on dangling pronouns without explicit entity binding. AI Quotability Score: 0/100."`
+  - `evidence`: `"[Confidence: 89%] Simulated 2 RAG retrieval chunks (500 chars); 2/2 (100%) rely on dangling pronouns without explicit entity binding. AI Quotability Score: 0/100."`
 
 #### B. Good Pattern (Self-Contained & Highly Quotable)
 ```html
@@ -37,7 +37,7 @@ When an AI assistant (ChatGPT, Perplexity) searches a live webpage to answer a u
 
 ---
 
-## 2. Worked Example 2: Fact-to-Filler Ratio & Summarizer Dropout (Appendix F)
+## 2. Worked Example 2: Substantive Lexical Density & Anti-Fluff Analysis (LDR per Appendix F)
 
 ### The Underlying Problem (Appendix F)
 Appendix F notes: *"when the genuinely important lines are surrounded by low-value filler — the summary has little to work with, and the important part can simply disappear."*
@@ -57,7 +57,7 @@ Appendix F notes: *"when the genuinely important lines are surrounded by low-val
   - Quantified factual metrics: **0** (no benchmarks, no protocols, no latency, no pricing).
 * **Our Audit Flag**:
   - `title`: `"AI Summarizer Dropout Zone: High filler-to-fact ratio obscures core propositions (Appendix F)"`
-  - `evidence`: `"Analyzed substantive technical prose; detected 10 corporate buzzwords against 0 quantified metrics (buzzword saturation: 27.0%). High risk of AI summarizer dropout per Appendix F."`
+  - `evidence`: `"[Confidence: 91%] Analyzed substantive technical prose; detected 10 corporate buzzwords against 0 quantified metrics (buzzword saturation: 27.0%). High risk of AI summarizer dropout per Appendix F."`
 
 #### B. Good Pattern (Substantive Proposition Density)
 ```html
@@ -70,3 +70,42 @@ Appendix F notes: *"when the genuinely important lines are surrounded by low-val
   - Buzzword count: 0.
   - Quantified factual metrics: 5 (`99.999%`, `sub-5ms`, `PostgreSQL 16`, `SOC2 Type II`, `AES-256`).
 * **Our Audit Flag**: **PASS (Informational Anchor Gate satisfied).**
+
+---
+
+## 3. Worked Example 3: User Journey & Conversion Friction (Engagement Deepening)
+
+### The Underlying Problem
+Visitors arriving from conversational AI assistants (ChatGPT, Perplexity, Claude) carry high specific intent. When an informational landing page fails to provide primary Call to Action (CTA) pathways, trust proof, or commercial routing, users bounce immediately.
+
+### The Contrast
+
+#### A. Bad Pattern (Informational Dead-End / Conversion Friction Trap)
+```html
+<main>
+  <h1>FlowDB High Performance Database</h1>
+  <p>FlowDB is a distributed document database designed for sub-millisecond query performance across distributed clouds.</p>
+</main>
+<!-- Missing CTA buttons, missing trust proof/SOC2 badges, missing /pricing or /signup links -->
+```
+* **Our Audit Flags**:
+  - `title`: `"Missing primary Call to Action (CTA) for AI-referred visitor conversion"`
+  - `title`: `"Absence of customer proof or trust verification signals"`
+  - `title`: `"Missing essential commercial conversion routing"`
+  - `title`: `"Missing discoverable FAQ or self-serve support pathways"`
+
+#### B. Good Pattern (Conversion-Optimized Landing Experience)
+```html
+<nav>
+  <a href="/pricing">Pricing</a>
+  <a href="/contact">Contact</a>
+  <a href="/signup" class="btn">Get Started Free</a>
+</nav>
+<main>
+  <h1>FlowDB High Performance Database</h1>
+  <p>SOC2 Type II certified and trusted by 200+ enterprise teams.</p>
+  <a href="/demo" class="cta-button">Book a Demo</a>
+  <details><summary>How is FlowDB deployed?</summary><p>Deploy in 1-click on AWS, GCP, or Azure.</p></details>
+</main>
+```
+* **Our Audit Flag**: **PASS (All conversion pathways, trust proof, and support routes satisfied).**

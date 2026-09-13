@@ -17,11 +17,12 @@ Use when diagnosing why visitors referred from AI assistants bounce immediately 
 - Executed directly via `scripts/audit_engagement.py <target>` or imported as a module by the orchestrator.
 
 ## Procedure & Modular Architecture
-Composed of 4 dedicated sub-modules:
+Composed of 5 dedicated sub-modules:
 1. `orientation_evaluator.py`: Evaluates 5-second cognitive orientation (H1 presence/clarity, meta description alignment, mobile viewport presence).
 2. `hierarchy_evaluator.py`: Analyzes heading hierarchy progression (H1 -> H2 -> H3) and deep citation anchor attributes (`id`) for paragraph-level referencing.
-3. `quotability_evaluator.py`: Simulates neural retrieval passage slicing (500-char windows), scoring Atomic Quotability (AQS) with hierarchical heading context injection and expletive pronoun filtering (Round 2 Appendix B & C).
-4. `filler_evaluator.py`: Evaluates substantive Lexical Density Ratio (LDR) against corporate buzzword fluff with hero-zone exemption and informational anchor gating (Round 2 Appendix F).
+3. `quotability_evaluator.py`: Deterministic Passage Quotability & Reference Resolution Heuristic (Atomic Fact Self-Containment per Appendix B & C).
+4. `filler_evaluator.py`: Substantive Lexical Density & Anti-Fluff Analysis (LDR per Appendix F).
+5. `conversion_evaluator.py`: Evaluates user journey friction, primary Call to Action (CTA) clarity, trust proof signals (certifications/testimonials/ratings), commercial conversion routing, and discoverable support/FAQ paths.
 
 ## Guardrails & Compliance
 - **Recommend-Only**: Passive inspection of rendered static DOM.

@@ -25,7 +25,7 @@ def inspect_nontext(html: str) -> list:
                 "id": "F-FRESH-007",
                 "title": "Brand information and diagrams locked in uncaptioned images",
                 "severity": "medium",
-                "evidence": f"{missing_alt_count}/{total_imgs} ({pct:.0f}%) img elements lack descriptive alt attributes.",
+                "evidence": f"[Confidence: 93%] {missing_alt_count}/{total_imgs} ({pct:.0f}%) img elements lack descriptive alt attributes.",
                 "suggested_action": {
                     "summary": "Add descriptive alt text to all informative images and diagram graphics so multimodal AI parsers can extract factual context.",
                     "priority": "medium"

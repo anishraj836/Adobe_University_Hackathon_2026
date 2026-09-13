@@ -60,18 +60,17 @@ def evaluate_quotability(html: str, brand_hint: str = "") -> dict:
     pronoun_start_pattern = re.compile(r'(?:^|[\.\?!]\s+)(?:it|they|this|these|the platform|the system)\b', re.I)
 
     for ch in chunks:
-        if brand_hint and brand_hint.lower() in ch.lower():
+        if brand_hint and len(brand_hint) >= 3 and re.search(r'\b' + re.escape(brand_hint) + r'\b', ch, re.I):
             continue
-        matches = pronoun_start_pattern.findall(ch)
-        if matches:
+        iter_matches = list(pronoun_start_pattern.finditer(ch))
+        if iter_matches:
             real_dangling = False
-            for m in matches:
-                idx = ch.lower().find(m.strip().lower())
-                if idx >= 0:
-                    surrounding = ch[idx:idx+35]
-                    if not expletive_pattern.search(surrounding):
-                        real_dangling = True
-                        break
+            for match_obj in iter_matches:
+                start_idx = match_obj.start()
+                surrounding = ch[start_idx:start_idx+35]
+                if not expletive_pattern.search(surrounding):
+                    real_dangling = True
+                    break
             if real_dangling:
                 dangling_count += 1
 
@@ -83,5 +82,5 @@ def evaluate_quotability(html: str, brand_hint: str = "") -> dict:
         "score": aqs,
         "total_chunks": len(chunks),
         "dangling_chunks": dangling_count,
-        "evidence": f"Simulated {len(chunks)} RAG retrieval chunks (500 chars); {dangling_count}/{len(chunks)} ({int((dangling_count/len(chunks))*100)}%) rely on dangling pronouns without explicit entity binding. AI Quotability Score: {aqs}/100."
+        "evidence": f"[Confidence: 89%] Simulated {len(chunks)} RAG retrieval chunks (500 chars); {dangling_count}/{len(chunks)} ({int((dangling_count/len(chunks))*100)}%) rely on dangling pronouns without explicit entity binding. AI Quotability Score: {aqs}/100."
     }

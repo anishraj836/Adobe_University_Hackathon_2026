@@ -50,15 +50,15 @@ Per Handout Page 1 (*"go find real websites that AI assistants cite well versus 
    - Timestamp age > 365 days across all available signals $\rightarrow$ **Stale Content** (`medium`).
 4. **Non-Text Imagery Trap**: Scans `<img>` tags. If > 40% of informative images lack meaningful `alt` attributes $\rightarrow$ **Non-Text Trap** (`medium`).
 5. **5-Second Orientation**: Primary `<h1>` must exist in top 3,000 characters and contain 5 to 150 characters, aligned with `<meta name="description">`.
-6. **LLM RAG Quotability**: Evaluates 500-char sliding windows in `<main>`/`<article>`. If Atomic Quotability Score (AQS) < 50 with >= 2 dangling pronoun chunks $\rightarrow$ **RAG Retrieval Risk** (`medium`).
-7. **Lexical Density Ratio (LDR)**: Hero zone exempt. If a technical/feature section contains 0 quantified metrics AND > 3.5% corporate fluff buzzwords $\rightarrow$ **Summarizer Dropout Zone** (`medium`).
+6. **Deterministic Passage Quotability & Reference Resolution Heuristic (Atomic Fact Self-Containment per Appendix B & C)**: Evaluates 500-char sliding windows in `<main>`/`<article>`. If Atomic Quotability Score (AQS) < 50 with >= 2 dangling pronoun chunks $\rightarrow$ **Quotability & Reference Resolution Risk** (`medium`).
+7. **Substantive Lexical Density & Anti-Fluff Analysis (LDR per Appendix F)**: Hero zone exempt. If a technical/feature section contains 0 quantified metrics AND > 3.5% corporate fluff buzzwords $\rightarrow$ **Summarizer Dropout Zone** (`medium`).
 8. **Entity Ambiguity**: If brand name matches dictionary homonym list (`references/polysemy_dictionary.json`) and lacks `legalName`, specialized `@type`, or `sameAs` $\rightarrow$ **Hallucination Risk** (`medium`).
 
 ---
 
-## 4. Evidence-Conditioned Proactive Opportunities (Anti-Padding)
+## 4. Turnkey Suggested Action Synthesizer (Evidence-Conditioned Action Synthesis)
 
-To satisfy the rubric mandate for *relevant and non-obvious* suggestions, `proactive_engine.py` rejects blanket emissions:
+Delivering drop-in code fixes inside suggested actions rather than generic advice, strictly conditioned on observed site evidence:
 - **`/llms.txt`**: Conditioned on discovering documentation, guide, or API routes (`/docs`, `/api`, `/developers`) while lacking `/llms.txt`.
 - **`FAQPage` Schema**: Conditioned on detecting natural question patterns or FAQ headings in body copy without structured markup.
 - **Citation Anchors**: Conditioned on detecting multiple subheadings (`>= 2`) where < 25% have HTML `id` attributes.
@@ -131,14 +131,15 @@ brand-ai-readiness-audit/
     │   │   ├── nontext_inspector.py   # Uncaptioned media & alt-text inspector
     │   │   └── audit_freshness.py     # Autonomous composed runner CLI
     │   └── references/ (jsonld_templates.json, authority_registries.json, polysemy_dictionary.json)
-    └── engagement-audit/              # Decomposed into 4 single-responsibility modules:
+    └── engagement-audit/              # Decomposed into 5 single-responsibility modules:
         ├── SKILL.md
         ├── scripts/
         │   ├── orientation_evaluator.py # 5-second orientation, viewport & meta description
         │   ├── hierarchy_evaluator.py   # Heading hierarchy & deep citation anchors
         │   ├── quotability_evaluator.py # Passage slicing & Atomic Quotability (Appendix B/C)
         │   ├── filler_evaluator.py      # Lexical Density & Fact-to-Filler Ratio (Appendix F)
-        │   └── audit_engagement.py    # Autonomous composed runner CLI
+        │   ├── conversion_evaluator.py  # User journey, CTAs, trust proof & conversion friction
+        │   └── audit_engagement.py      # Autonomous composed runner CLI
         └── references/ (orientation_rubric.md, friction_patterns.json, filler_lexicon.json)
 ```
 
@@ -148,6 +149,6 @@ brand-ai-readiness-audit/
 
 - **Recommend-Only**: 100% passive, read-only inspection. Zero live site mutations.
 - **RFC 9309 Robots.txt Compliance**: Strictly respects disallow rules.
-- **Runtime Budget**: Executes in < 1 second offline (typically ~0.02s) and < 15 seconds live (Ceiling: < 5 minutes).
+- **Runtime Budget**: Low-overhead bounded execution: sub-second offline processing (~0.02s typical), bounded stream fetching live (well under 5-minute ceiling).
 - **Package Size**: < 2 MB including all fixtures and references (Ceiling: < 50 MB; no binary model weights).
 - **Zero External Dependencies**: Pure Python standard library reliability with automatic acceleration if `requests`/`bs4` present.

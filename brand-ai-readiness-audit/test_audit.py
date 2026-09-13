@@ -2,7 +2,7 @@
 """
 Automated Test Suite for Brand AI-Readiness Audit Marketplace.
 Validates detection accuracy, schema conformity, causal shielding,
-the 4 Impressive Key Differentiators, and execution speed (< 0.5s).
+conversion friction evaluation, and execution speed.
 """
 
 import os
@@ -13,6 +13,9 @@ import unittest
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ORCHESTRATOR_SCRIPTS = os.path.join(BASE_DIR, "skills/audit-orchestrator/scripts")
 sys.path.insert(0, ORCHESTRATOR_SCRIPTS)
+sys.path.insert(0, os.path.join(BASE_DIR, "skills/crawl-render-audit/scripts"))
+sys.path.insert(0, os.path.join(BASE_DIR, "skills/freshness-corroboration/scripts"))
+sys.path.insert(0, os.path.join(BASE_DIR, "skills/engagement-audit/scripts"))
 
 from run_audit import run_audit
 from schema_validator import validate_report_schema
@@ -152,6 +155,138 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         evidence = findings[0]["evidence"]
         self.assertIn("Crawled 3 page(s)", evidence)
         self.assertIn("0/3 contain schema.org markup", evidence)
+
+    def test_10_conversion_friction_evaluation(self):
+        from conversion_evaluator import evaluate_conversion
+
+        # 1. Page with zero CTAs, zero trust proof, zero commercial routes, and zero FAQ paths
+        friction_html = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Unconverted Informational Page</title></head>
+        <body>
+          <main>
+            <h1>Distributed Cache Architecture</h1>
+            <p>Our distributed cache provides sub-millisecond key-value storage across multiple cloud regions.</p>
+          </main>
+        </body>
+        </html>
+        """
+        findings = evaluate_conversion(friction_html)
+        self.assertEqual(len(findings), 4)
+        finding_ids = {f["id"] for f in findings}
+        self.assertIn("F-ENGAGE-011", finding_ids)
+        self.assertIn("F-ENGAGE-012", finding_ids)
+        self.assertIn("F-ENGAGE-013", finding_ids)
+        self.assertIn("F-ENGAGE-014", finding_ids)
+
+        # 2. Page with clear CTA, SOC2 certification, /pricing route, and FAQPage structured data
+        converted_html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Converted SaaS Platform</title>
+          <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": []
+          }
+          </script>
+        </head>
+        <body>
+          <header>
+            <nav>
+              <a href="/pricing">Pricing</a>
+              <a href="/contact">Contact</a>
+              <a href="/signup" class="btn">Get Started</a>
+            </nav>
+          </header>
+          <main>
+            <h1>Autonomous AI Infrastructure</h1>
+            <p>SOC2 Type II accredited with end-to-end encryption.</p>
+            <button>Book a Demo</button>
+          </main>
+        </body>
+        </html>
+        """
+        clean_findings = evaluate_conversion(converted_html)
+        self.assertEqual(len(clean_findings), 0, f"Expected 0 findings on fully converted page, got: {clean_findings}")
+
+    def test_11_http_404_error_gating(self):
+        from audit_crawl import audit_crawl
+        from audit_freshness import audit_freshness
+        from audit_engagement import audit_engagement
+
+        bundle_404 = {"status": 404, "html": "<html><body><h1>Not Found</h1></body></html>", "url": "https://example.com"}
+
+        crawl_findings = audit_crawl(bundle_404)
+        self.assertTrue(any(f["id"] == "F-CRAWL-001" for f in crawl_findings), "404 must trigger F-CRAWL-001 unreachable finding")
+
+        freshness_findings = audit_freshness(bundle_404)
+        self.assertEqual(len(freshness_findings), 0, "404 must cleanly gate out freshness audit without false positives")
+
+        engagement_findings = audit_engagement(bundle_404)
+        self.assertEqual(len(engagement_findings), 0, "404 must cleanly gate out engagement audit without false positives")
+
+    def test_12_proactive_anchor_suppression(self):
+        rich_bundle = {
+            "html": """
+            <html>
+            <head><title>Heading Test</title></head>
+            <body>
+              <h2>Subheading Alpha</h2>
+              <h2>Subheading Beta</h2>
+            </body>
+            </html>
+            """,
+            "url": "https://example.com"
+        }
+        # Without F-ENGAGE-005: proactive engine suggests F-PROACT-004
+        proactive_without = generate_proactive_actions(rich_bundle, set())
+        self.assertTrue(any(p["id"] == "F-PROACT-004" for p in proactive_without))
+
+        # With F-ENGAGE-005: proactive engine must suppress F-PROACT-004
+        proactive_with = generate_proactive_actions(rich_bundle, {"F-ENGAGE-005"})
+        self.assertFalse(any(p["id"] == "F-PROACT-004" for p in proactive_with), "F-PROACT-004 must be suppressed if F-ENGAGE-005 already exists")
+
+    def test_13_strict_schema_validation(self):
+        valid_report = {
+            "site": "example.com",
+            "audited_at": "2026-09-20T14:32:00Z",
+            "summary": {
+                "total_findings": 1,
+                "critical": 1,
+                "high": 0,
+                "medium": 0
+            },
+            "findings": [
+                {
+                    "id": "F-001",
+                    "title": "Robots block",
+                    "severity": "critical",
+                    "evidence": "Observed block",
+                    "suggested_action": {"summary": "Fix robots.txt", "priority": "critical"}
+                }
+            ]
+        }
+        valid, errs = validate_report_schema(valid_report)
+        self.assertTrue(valid, f"Valid report failed: {errs}")
+
+        # Unexpected extra top-level key must fail
+        extra_top = dict(valid_report)
+        extra_top["extra_meta"] = "invalid"
+        valid, errs = validate_report_schema(extra_top)
+        self.assertFalse(valid)
+        self.assertTrue(any("Unexpected extra top-level key" in e for e in errs))
+
+        # Unexpected extra summary key must fail
+        extra_sum = dict(valid_report)
+        extra_sum["summary"] = dict(valid_report["summary"])
+        extra_sum["summary"]["low"] = 0
+        valid, errs = validate_report_schema(extra_sum)
+        self.assertFalse(valid)
+        self.assertTrue(any("unexpected extra key" in e for e in errs))
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,7 +2,7 @@
 """
 Comprehensive Benchmark & Validation Suite for Brand AI-Readiness Audit Marketplace.
 Executes:
-1. Automated Regression Suite (9 tests)
+1. Automated Regression Suite (10 tests)
 2. Precision & False-Positive Ground-Truth Audit across all 5 synthetic fixtures
 3. Statistical Latency Profiling (10 iterations per fixture: min, mean, median, max ms)
 4. Strict Handout Page 2 JSON Schema Validation
@@ -54,7 +54,7 @@ def run_benchmark():
     with redirect_stdout(sink), redirect_stderr(sink):
         test_result = runner.run(suite)
     tests_passed = test_result.wasSuccessful()
-    print(f"[*] Regression Test Suite: {'PASSED (9/9)' if tests_passed else 'FAILED'}")
+    print(f"[*] Regression Test Suite: {'PASSED (' + str(test_result.testsRun) + '/' + str(test_result.testsRun) + ')' if tests_passed else 'FAILED'}")
 
     # --- PART 2: GROUND-TRUTH ACCURACY & FALSE-POSITIVE AUDIT ---
     print("\n[STEP 2/5] Evaluating Ground-Truth Accuracy & False-Positive Immunity...")
@@ -204,7 +204,7 @@ def run_benchmark():
     print("\n" + "=" * 80)
     print(" FINAL BENCHMARK SCORECARD")
     print("=" * 80)
-    print(f"  Unit & Regression Tests:        9 / 9 PASSED (100%)")
+    print(f"  Unit & Regression Tests:        {test_result.testsRun} / {test_result.testsRun} PASSED (100%)")
     print(f"  Ground-Truth Accuracy:          5 / 5 FIXTURES PASSED (100%)")
     print(f"  False-Positive Resistance:      VERIFIED (Modern Next.js SSR Passed Cleanly)")
     print(f"  Handout Page 2 Schema Parity:   100% STRICT COMPLIANCE")

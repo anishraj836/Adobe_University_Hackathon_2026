@@ -83,3 +83,19 @@ This document formalizes the empirical field research conducted across live comm
 - **`F-ENGAGE-005` & Conditioned Proactive Trigger `F-PROACT-004`**:
   - Calculates percentage of `<h2>`/`<h3>` subheadings with persistent HTML `id` attributes.
   - Generates turnkey anchor ID injection templates.
+
+---
+
+## 5. Case Study 5: Conversion Friction & User Journey Dead-Ends for AI Referrals
+
+### Observation
+- AI assistants (ChatGPT, Claude, Perplexity) refer users to pages based on specific conversational queries (e.g., pricing, compliance, feature comparisons).
+- When a landing page serves as an informational dead-end — lacking clear primary CTAs, trust proof (SOC2/ISO, customer quotes), commercial routing (/pricing, /contact), or discoverable FAQ paths — users bounce immediately without converting.
+- High-performing domains (Stripe, Linear, TopBrand) maintain persistent conversion routing and verified trust signals across every landing page.
+
+### Heuristic Encoded
+- **`F-ENGAGE-011` through `F-ENGAGE-014` (`conversion_evaluator.py`)**:
+  - Evaluates primary Call to Action (CTA) presence and clarity.
+  - Audits trust proof signals (certifications, testimonials, review ratings).
+  - Verifies commercial conversion routes (`/pricing`, `/contact`, `/demo`, `/docs`, `/signup`).
+  - Audits discoverable self-serve FAQ/support paths.

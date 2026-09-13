@@ -31,7 +31,7 @@ def audit_freshness(bundle: dict) -> list:
     subpages = bundle.get("subpages", [])
     home_status = bundle.get("status", 200)
 
-    if home_status == 0 or (home_status >= 400 and home_status != 404):
+    if home_status == 0 or home_status >= 400:
         return []
 
     # 1. Multi-Page Schema.org Structured Data

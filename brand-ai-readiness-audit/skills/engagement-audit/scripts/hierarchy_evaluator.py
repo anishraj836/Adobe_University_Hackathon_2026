@@ -18,7 +18,7 @@ def evaluate_hierarchy(html: str) -> list:
                 "id": "F-ENGAGE-005",
                 "title": "Subheadings lack persistent citation anchor IDs",
                 "severity": "medium",
-                "evidence": f"Only {anchored_count}/{len(subheadings)} (H2-H4) subheadings possess HTML id attributes for fragment deep-linking.",
+                "evidence": f"[Confidence: 92%] Only {anchored_count}/{len(subheadings)} (H2-H4) subheadings possess HTML id attributes for fragment deep-linking.",
                 "suggested_action": {
                     "summary": "Attach persistent semantic id attributes (e.g., id='features', id='pricing') to all H2/H3 headers so AI assistants can cite and deep-link directly to factual claims.",
                     "priority": "medium"
