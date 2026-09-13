@@ -73,6 +73,44 @@ brand-ai-readiness-audit/
         └── references/ (orientation_rubric.md, friction_patterns.json, filler_lexicon.json)
 ```
 
+### What Each Skill Does
+
+1. **`audit-orchestrator` (`skills/audit-orchestrator`)** — *[Entrypoint Skill]*:
+   - Central controller that coordinates end-to-end audits of target URLs or local fixtures.
+   - Enforces **Causal Error Shielding**: immediately suppresses downstream content/schema checks if the site is unreachable or completely blocked at the network/robots layer, preventing cascade false positives.
+   - Synthesizes turnkey, drop-in remediation code (`/llms.txt`, JSON-LD `FAQPage`, `sameAs` blocks) via `proactive_engine.py`.
+   - Formats, prioritizes, and validates the final report against the strict Handout Page 2 JSON contract (`schema_validator.py`).
+
+2. **`crawl-render-audit` (`skills/crawl-render-audit`)**:
+   - Inspects network and crawler accessibility for 9 leading AI user-agents (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`, etc.).
+   - Parses RFC 9309 `robots.txt` records with full path-scoped (`/path/`) and root (`/`) matching.
+   - Detects AI-selective bot cloaking via dual-probe User-Agent fetching (Standard Browser vs. `GPTBot`).
+   - Identifies Client-Side Rendering (CSR) barriers (empty `#root` mount with `< 50` words) while allowing server-rendered SSR pages with hydration hooks to pass cleanly.
+   - Validates XML Sitemap discoverability in `robots.txt` and origin paths.
+
+3. **`freshness-corroboration` (`skills/freshness-corroboration`)**:
+   - Validates multi-page Schema.org structured data (`Organization`, `WebSite`, `Product`, `FAQPage`) with recursive JSON-LD `@graph` unwrapping.
+   - Resolves generic brand name ambiguity (Appendix D) using on-site disambiguation posture (`legalName`, `disambiguatingDescription`, and multi-registry `sameAs` links to Wikidata, Wikipedia, Crunchbase, LinkedIn).
+   - Performs **4-Way Temporal Freshness Corroboration** across JSON-LD `dateModified`, OpenGraph `article:modified_time`, DOM `<time>`, and RFC 7231 HTTP `Last-Modified` headers. Detects both uniform staleness (> 365 days across all channels) and temporal signal drift (> 180 days inter-channel divergence).
+   - Inspects non-text imagery traps (Appendix C) for missing descriptive `alt` attributes, explicitly filtering out purely decorative visuals (`role="presentation"`, `aria-hidden="true"`).
+
+4. **`engagement-audit` (`skills/engagement-audit`)**:
+   - Evaluates on-site visitor retention and conversion friction for high-intent AI-referred traffic.
+   - Audits 5-second cognitive orientation (prominent `<h1>` tag within the hero zone and semantic token alignment with `<meta name="description">`).
+   - Enforces sequential heading hierarchy (detecting skipped heading levels like `H1 -> H3`) and verifies fragment citation anchor IDs on subheadings.
+   - Simulates neural retrieval passage slicing (500-char sliding windows) to compute the **Atomic Quotability Score (AQS)** and flag dangling pronouns (Appendix B & C), with narrative container scope-gating.
+   - Measures Substantive Lexical Density (LDR anti-fluff analysis per Appendix F) with full hero-zone marketing exemptions.
+   - Evaluates commercial conversion friction (primary CTAs, verifiable trust proof, commercial routing, and FAQ discovery) gated strictly by `has_commercial_intent()`.
+
+### How the Entry Point Composes Them
+
+The orchestrator (`run_audit.py`) executes a sequential, causally-shielded pipeline:
+1. **Target Ingestion & Multi-Page Discovery**: `fetch_target_bundle()` fetches the target URL or local fixture, probes `robots.txt` and sitemaps, discovers documentation and conversion subpages, and executes dual-probe User-Agent testing.
+2. **Crawl & Render Layer**: Invokes `audit_crawl()`. If the target is unreachable (HTTP $\ge 400$) or blocks AI crawlers at the network layer (`F-CRAWL-001`), the orchestrator triggers **Causal Error Shielding**, immediately halting further skill execution to prevent alert pollution.
+3. **Domain Evaluation Layer**: If reachability is verified, the orchestrator invokes `audit_freshness()` and `audit_engagement()` in sequence, collecting structured findings across metadata, markup, hierarchy, quotability, and conversion friction.
+4. **Proactive Synthesis Layer**: Feeds observed site evidence into `proactive_engine.py` to synthesize copy-paste drop-in code fixes (`/llms.txt`, JSON-LD `FAQPage`, `sameAs` entity links).
+5. **Report Normalization & Schema Enforcement**: Re-indexes all findings (`F-001`, `F-002`, ...), preserves individual `low` severities while folding counts into `medium` for summary compliance (`total_findings == critical + high + medium`), and enforces Handout Page 2 schema floor compliance via `schema_validator.py`.
+
 ---
 
 ## 3. Quickstart & CLI Usage
