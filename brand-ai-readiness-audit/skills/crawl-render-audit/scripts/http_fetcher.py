@@ -6,7 +6,7 @@ and transparent local fixture/file:// ingestion.
 """
 
 import os
-import sys
+import time
 import gzip
 import re
 import warnings
@@ -294,8 +294,13 @@ def fetch_target_bundle(target: str) -> dict:
     # 1. Standard Homepage
     home_resp = fetch_url(base_url, user_agent=BROWSER_UA)
     
-    # 2. GPTBot Probe
+    # 2. AI Bot Probe (with bounded 1-retry backoff for transient 429/503 rate limits or server blips)
     bot_resp = fetch_url(base_url, user_agent=AI_BOT_UA)
+    if bot_resp.get("status") in (429, 503):
+        time.sleep(0.75)
+        retry_resp = fetch_url(base_url, user_agent=AI_BOT_UA)
+        if retry_resp.get("status") not in (0,):
+            bot_resp = retry_resp
 
     # 3. robots.txt
     robots_url = urljoin(origin, "/robots.txt")

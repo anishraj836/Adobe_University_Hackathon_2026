@@ -5,7 +5,6 @@ Evaluates sameAs links and on-site disambiguation posture (Round 2 Appendix D).
 """
 
 import os
-import sys
 import json
 import re
 

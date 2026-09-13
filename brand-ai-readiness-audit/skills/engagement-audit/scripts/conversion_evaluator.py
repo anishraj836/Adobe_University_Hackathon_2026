@@ -258,6 +258,5 @@ def evaluate_conversion(html: str) -> list[dict]:
     return findings
 
 if __name__ == "__main__":
-    import sys
     sample = "<html><body><h1>Example</h1><a href='/pricing'>Pricing</a><p>SaaS platform with enterprise solutions.</p></body></html>"
     print(json.dumps(evaluate_conversion(sample), indent=2))

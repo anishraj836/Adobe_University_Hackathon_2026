@@ -176,10 +176,10 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
         pct_anchored = (anchored_count / len(subheadings)) * 100
         if pct_anchored < 25:
             anchor_example = (
-                f'<!-- Example semantic citation anchors for AI deep-linking -->\n'
-                f'<h2 id="overview">Platform Overview</h2>\n'
-                f'<h2 id="features">Core Capabilities & Specifications</h2>\n'
-                f'<h2 id="pricing">Pricing & Commercial Terms</h2>'
+                '<!-- Example semantic citation anchors for AI deep-linking -->\n'
+                '<h2 id="overview">Platform Overview</h2>\n'
+                '<h2 id="features">Core Capabilities & Specifications</h2>\n'
+                '<h2 id="pricing">Pricing & Commercial Terms</h2>'
             )
             proactive.append({
                 "id": "F-PROACT-004",

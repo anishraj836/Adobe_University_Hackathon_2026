@@ -111,9 +111,9 @@ brand-ai-readiness-audit/
    - Formats, prioritizes, and validates the final report against the strict Handout Page 2 JSON contract (`schema_validator.py`).
 
 2. **`crawl-render-audit` (`skills/crawl-render-audit`)**:
-   - Inspects network and crawler accessibility for 9 leading AI user-agents (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`, etc.).
-   - Parses RFC 9309 `robots.txt` records with full path-scoped (`/path/`) and root (`/`) matching.
-   - Detects AI-selective bot cloaking via dual-probe User-Agent fetching (Standard Browser vs. `GPTBot`).
+   - Inspects network and crawler accessibility across a complete 13-agent taxonomy divided into Tier 1 Real-time Citation/Retrieval crawlers (`OAI-SearchBot`, `ChatGPT-User`, `Claude-SearchBot`, `Claude-User`, `PerplexityBot`, `Perplexity-User`) and Tier 2 Foundation Training crawlers (`GPTBot`, `ClaudeBot`, `Google-Extended`, `Applebot-Extended`, `Amazonbot`, `Bytespider`, `CCBot`).
+   - Parses RFC 9309 `robots.txt` records with full path-scoped (`/path/`) and root (`/`) matching, ensuring narrow path rules do not falsely block whole sites.
+   - Detects AI-selective bot cloaking via dual-probe User-Agent fetching (Standard Browser vs. `GPTBot`) backed by bounded 1-retry backoff against transient 429/503 rate limits.
    - Identifies Client-Side Rendering (CSR) barriers (empty `#root` mount with `< 50` words) while allowing server-rendered SSR pages with hydration hooks to pass cleanly.
    - Validates XML Sitemap discoverability in `robots.txt` and origin paths.
 
@@ -175,7 +175,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 
 ### Running the Test & Benchmark Suites
 ```bash
-# Automated regression unit tests (27 tests in ~0.04s)
+# Automated regression unit tests (29 tests in ~0.04s)
 python3 test_audit.py
 
 # Full 5-step benchmark scorecard (latency percentiles, ground truth accuracy)
@@ -215,6 +215,8 @@ Every false-positive safeguard in this marketplace is backed by a bidirectional 
 | **Decorative Image Exemption** | Flags all images without descriptive alt text, including decorative spacers, icons, and backgrounds. | Honors WCAG decorative markup (`role="presentation"`, `role="none"`, `aria-hidden="true"`), excluding decorative media while strictly flagging uncaptioned informative graphics. | `test_25_decorative_image_exemption_guard` |
 | **Expletive Pronoun Filter** | Flags natural English dummy-subject idioms (*"It is essential..."*, *"It takes 30 seconds..."*) as dangling anaphora. | Regex lookahead pattern (`it\s+(?:is|was|takes|seems|appears|has\s+been)`) exempts standard expletive constructions from passage quotability penalties while flagging genuine unresolved pronouns. | `test_26_expletive_pronoun_filter_guard` |
 | **Search Form CTA Exemption** | Treats any `<form>` with a submit button or `<button>` as a commercial conversion CTA, letting pages with only site search pass without CTAs. | Disqualifies search, query, and filter forms via `role="search"`, `action="...search..."`, and `name="q"`, accurately enforcing `F-ENGAGE-011` when zero actual conversion pathways exist. | `test_27_search_form_cta_exemption_guard` |
+| **AI Crawler Taxonomy & Severity** | Conflates foundation model training crawlers with real-time retrieval crawlers, assigning critical severity to training-only blocks. | Distinguishes Tier 1 Citation Crawlers (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`) from Tier 2 Training Crawlers (`GPTBot`, `ClaudeBot`, `Google-Extended`). Blocks on live citation bots trigger `critical`, while training-only blocks trigger `high`. | `test_28_ai_crawler_taxonomy_training_vs_citation_severity` |
+| **Transient Network Probe Blip** | Emits a critical cloaking finding (`F-CRAWL-002`) on a single transient 429 or 503 response. | Implements bounded 1-retry backoff for transient 429/503 responses before flagging network cloaking, preventing false alarms from CDN rate-limits. | `test_29_transient_probe_retry_guard` |
 
 These tests demonstrate that the marketplace discriminates between genuine architectural barriers and intentional, standard web design patterns.
 
@@ -227,6 +229,19 @@ In strict adherence to the hackathon's < 5-minute runtime and zero-external-depe
 - **Offline Knowledge Graph Posture**: External entity registries (Wikidata, Crunchbase) are audited via the brand's on-site knowledge graph bridge (`sameAs` links) rather than making outbound live SPARQL queries during offline evaluation.
 - **Conjunctive Freshness & Drift**: Content is only flagged as stale when all available signals agree ($\max(\text{dates}) < \text{now} - 365\text{ days}$). Conflicting signals (> 180 days drift between headers and markup) are flagged as temporal divergence (`F-FRESH-007`). See `skills/freshness-corroboration/references/freshness_design_decisions.md`.
 - **Live Empirical Validation**: See `references/live_validation.md` for live audit transcripts on production websites (`example.com`, `httpbin.org`, `python.org`).
+
+### 6.1 Architectural & Reasoning Decisions: Why Generalization Holds
+
+To ensure robust evaluation on real-world, unseen websites without overfitting to synthetic fixtures, our architecture implements three core mechanism-level design decisions:
+
+1. **Crawler Taxonomy Mechanics (Training vs. Live Citation & Retrieval)**:
+   Modern conversational AI engines (OpenAI SearchGPT, Anthropic Claude, Perplexity) operate real-time retrieval & citation crawlers (`OAI-SearchBot`, `ChatGPT-User`, `Claude-SearchBot`, `Claude-User`, `PerplexityBot`, `Perplexity-User`) distinct from foundation model pre-training crawlers (`GPTBot`, `ClaudeBot`, `Google-Extended`, `Applebot-Extended`, `Amazonbot`, `Bytespider`, `CCBot`). When a website blocks training crawlers, it protects intellectual property from being scraped into future model weights, yet the brand remains discoverable and citable in real-time user queries. In contrast, blocking citation crawlers directly purges the brand from live AI search answers. Our marketplace explicitly models this operational distinction: blocking retrieval bots triggers `critical` severity, whereas blocking training bots triggers `high` severity.
+
+2. **RFC 9309 Root vs. Path-Scoped Robots.txt Precision**:
+   Real-world production sites (e.g., `python.org`, e-commerce catalogs, SaaS apps) frequently restrict administrative, staging, or telemetry paths (`Disallow: /admin/`, `Disallow: /webstats/`). Naive auditing scripts treat any non-empty `Disallow:` as a site-wide block, creating rampant false positives on healthy sites. Our marketplace strictly adheres to RFC 9309 §2.2.1 precedence: only root-level disallows (`Disallow: /` or `Disallow: /*`) without an explicit `Allow: /` override flag a site as blocked, while path-scoped restrictions preserve full indexability.
+
+3. **Dual-Probe User-Agent Probing (AEO Cloaking Detection)**:
+   To detect selective AI bot cloaking or network-layer WAF discrimination, `http_fetcher.py` performs differential dual-probe fetching comparing standard browser traffic against AI crawler traffic (`User-Agent: Mozilla/5.0 (compatible; GPTBot/1.2; +https://openai.com/gptbot)`). This is an intentional, standard AEO auditing technique motivated by the hackathon appendix to verify whether verified bot user-agents receive disparate HTTP status codes (401, 403, 429, 503). To eliminate false alarms caused by edge CDN rate-limits or transient server hiccups, the fetcher executes a bounded 1-retry backoff before asserting network-level cloaking (`F-CRAWL-002`).
 
 ---
 

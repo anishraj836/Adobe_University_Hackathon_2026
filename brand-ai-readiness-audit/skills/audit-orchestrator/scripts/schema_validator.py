@@ -4,7 +4,6 @@ Strict Schema Validator for Handout Page 2 Audit Report Compliance.
 Enforces that summary contains total_findings, critical, high, medium (the Handout floor).
 """
 
-import sys
 import re
 
 FINDING_SEVERITY_VALUES = {"critical", "high", "medium", "low"}

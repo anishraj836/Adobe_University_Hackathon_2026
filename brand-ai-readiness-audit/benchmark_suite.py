@@ -14,7 +14,6 @@ import os
 import sys
 import io
 import time
-import json
 import statistics
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
@@ -25,7 +24,6 @@ sys.path.insert(0, ORCHESTRATOR_SCRIPTS)
 
 from run_audit import run_audit
 from schema_validator import validate_report_schema
-from proactive_engine import generate_proactive_actions
 
 from audit_crawl import audit_crawl
 from audit_freshness import audit_freshness
@@ -206,12 +204,12 @@ def run_benchmark():
     print(" FINAL BENCHMARK SCORECARD")
     print("=" * 80)
     print(f"  Unit & Regression Tests:        {test_result.testsRun} / {test_result.testsRun} PASSED (100%)")
-    print(f"  Ground-Truth Accuracy:          5 / 5 FIXTURES PASSED (100%)")
-    print(f"  False-Positive Resistance:      VERIFIED (Modern Next.js SSR Passed Cleanly)")
-    print(f"  Handout Page 2 Schema Parity:   100% STRICT COMPLIANCE")
+    print("  Ground-Truth Accuracy:          5 / 5 FIXTURES PASSED (100%)")
+    print("  False-Positive Resistance:      VERIFIED (Modern Next.js SSR Passed Cleanly)")
+    print("  Handout Page 2 Schema Parity:   100% STRICT COMPLIANCE")
     print(f"  Total 5-Fixture Latency:        {total_mean:.2f} ms ({total_mean / 1000.0:.4f}s)")
     print(f"  Submission Bundle Size:         {zip_size_kb:.1f} KB (Ceiling: 50,000 KB)")
-    print(f"  External Dependencies:          0 Required (Pure Standard Library Native)")
+    print("  External Dependencies:          0 Required (Pure Standard Library Native)")
     print("=" * 80)
 
 if __name__ == "__main__":

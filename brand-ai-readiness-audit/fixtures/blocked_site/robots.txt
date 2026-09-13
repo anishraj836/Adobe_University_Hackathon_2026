@@ -3,3 +3,12 @@ Disallow: /
 
 User-agent: ClaudeBot
 Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: Claude-SearchBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /

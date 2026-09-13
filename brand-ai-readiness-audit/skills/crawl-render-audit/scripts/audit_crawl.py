@@ -9,19 +9,28 @@ import os
 import sys
 import json
 import re
-from urllib.parse import urlparse
 
 # Ensure local script directory is in path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-from http_fetcher import fetch_target_bundle, BROWSER_UA, AI_BOT_UA
+from http_fetcher import fetch_target_bundle
 
-AI_CRAWLERS = [
-    "gptbot", "chatgpt-user", "claudebot", "perplexitybot", 
-    "google-extended", "applebot-extended", "amazonbot", "bytespider", "ccbot"
+# 2026 AI Crawler Taxonomy:
+# Tier 1: Real-time Retrieval & Citation Crawlers (Live AI Search / Answers)
+CITATION_CRAWLERS = [
+    "oai-searchbot", "chatgpt-user", "claude-searchbot", "claude-user",
+    "perplexitybot", "perplexity-user"
 ]
+
+# Tier 2: Foundation Model Training & Pre-training Crawlers
+TRAINING_CRAWLERS = [
+    "gptbot", "claudebot", "google-extended", "applebot-extended",
+    "amazonbot", "bytespider", "ccbot"
+]
+
+AI_CRAWLERS = CITATION_CRAWLERS + TRAINING_CRAWLERS
 
 def strip_tags(html: str) -> str:
     """Strip HTML tags, scripts, and styles to get raw visible text."""
@@ -213,7 +222,7 @@ def audit_crawl(bundle: dict) -> list[dict]:
             "id": "F-CRAWL-002",
             "title": "AI crawler user-agents selectively blocked at network layer",
             "severity": "critical",
-            "evidence": f"Dual-probe discrepancy: Browser UA succeeded (HTTP 200) while GPTBot UA received HTTP {bot_status}.",
+            "evidence": f"Dual-probe discrepancy: Browser UA succeeded (HTTP 200) while GPTBot UA received HTTP {bot_status} (confirmed across retry).",
             "suggested_action": {
                 "summary": "Whitelist verified AI assistant IP ranges and user-agents in your WAF / Cloudflare configuration.",
                 "priority": "critical"
@@ -233,15 +242,36 @@ def audit_crawl(bundle: dict) -> list[dict]:
                 evidence_details.append(f"{bot} ({reason})")
 
         if blocked_bots:
-            is_gpt_blocked = "gptbot" in blocked_bots
+            blocked_citation = [b for b in blocked_bots if b in CITATION_CRAWLERS]
+            blocked_training = [b for b in blocked_bots if b in TRAINING_CRAWLERS]
+
+            # Critical severity if any live citation/retrieval crawler is blocked (directly removes brand from live AI search answers)
+            # High severity if only foundation model training crawlers are blocked (protects training IP, but live AI search remains intact)
+            is_critical = len(blocked_citation) > 0
+            severity = "critical" if is_critical else "high"
+
+            breakdown_parts = []
+            if blocked_citation:
+                breakdown_parts.append(f"Live Retrieval/Citation: {', '.join(blocked_citation)}")
+            if blocked_training:
+                breakdown_parts.append(f"Model Training: {', '.join(blocked_training)}")
+
+            action_summary = (
+                "Update robots.txt to permit indexing by conversational AI citation crawlers "
+                "(OAI-SearchBot, Claude-SearchBot, PerplexityBot) on public content paths so your brand is cited in real-time answers."
+                if is_critical else
+                "Review training crawler blocks (GPTBot, ClaudeBot, Google-Extended). While blocking training crawlers protects IP "
+                "from model pre-training, ensure citation and retrieval crawlers remain permitted."
+            )
+
             findings.append({
                 "id": "F-CRAWL-003",
-                "title": "Robots.txt blocks AI assistant crawlers",
-                "severity": "critical" if is_gpt_blocked else "high",
-                "evidence": f"RFC 9309 evaluation identified {len(blocked_bots)} blocked AI crawler(s): {', '.join(evidence_details)}.",
+                "title": "Robots.txt blocks AI citation & retrieval crawlers" if is_critical else "Robots.txt blocks AI model training crawlers",
+                "severity": severity,
+                "evidence": f"RFC 9309 evaluation identified {len(blocked_bots)} blocked AI crawler(s) ({'; '.join(breakdown_parts)}): {', '.join(evidence_details)}.",
                 "suggested_action": {
-                    "summary": "Update robots.txt to permit indexing by conversational AI crawlers (GPTBot, ClaudeBot, PerplexityBot) on public content paths.",
-                    "priority": "critical" if is_gpt_blocked else "high"
+                    "summary": action_summary,
+                    "priority": severity
                 }
             })
     else:

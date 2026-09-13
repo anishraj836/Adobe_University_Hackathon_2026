@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(BASE_DIR, "skills/engagement-audit/scripts"))
 from run_audit import run_audit
 from schema_validator import validate_report_schema
 from proactive_engine import generate_proactive_actions
-from freshness_evaluator import evaluate_freshness, extract_temporal_signals
+from freshness_evaluator import evaluate_freshness
 from entity_resolver import evaluate_entity
 from audit_crawl import audit_crawl, parse_robots_records, is_bot_blocked
 from conversion_evaluator import evaluate_conversion, has_commercial_intent, check_primary_cta
@@ -792,6 +792,67 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertIn("Get Started", cta_msg)
         cta_findings = evaluate_conversion(cta_page)
         self.assertFalse(any(f["id"] == "F-ENGAGE-011" for f in cta_findings), "False positive: Page with valid 'Get Started' CTA button flagged for missing CTA!")
+
+    def test_28_ai_crawler_taxonomy_training_vs_citation_severity(self):
+        """Severity calibration guard: Blocking citation crawlers (OAI-SearchBot, Claude-SearchBot) triggers critical severity, while blocking model training crawlers only (GPTBot, Google-Extended) triggers high severity."""
+        # Case A: Only foundation model training crawler blocked -> severity must be 'high'
+        training_robots = "User-agent: GPTBot\nDisallow: /\n\nUser-agent: Google-Extended\nDisallow: /\n"
+        bundle_training = {
+            "status": 200,
+            "url": "https://example.com",
+            "html": "<html><body><h1>Example</h1><p>Test content.</p></body></html>",
+            "robots_txt": training_robots,
+            "headers": {},
+            "bot_probe_status": 200,
+            "is_local": False
+        }
+        findings_train = audit_crawl(bundle_training)
+        crawl_train = [f for f in findings_train if f["id"] == "F-CRAWL-003"]
+        self.assertEqual(len(crawl_train), 1, "Expected F-CRAWL-003 finding for blocked training crawlers")
+        self.assertEqual(crawl_train[0]["severity"], "high", "Blocking only training crawlers must be severity 'high' (not critical)")
+        self.assertIn("Model Training", crawl_train[0]["evidence"])
+
+        # Case B: Live retrieval/citation crawler blocked -> severity must be 'critical'
+        citation_robots = "User-agent: OAI-SearchBot\nDisallow: /\n\nUser-agent: Claude-SearchBot\nDisallow: /\n"
+        bundle_citation = {
+            "status": 200,
+            "url": "https://example.com",
+            "html": "<html><body><h1>Example</h1><p>Test content.</p></body></html>",
+            "robots_txt": citation_robots,
+            "headers": {},
+            "bot_probe_status": 200,
+            "is_local": False
+        }
+        findings_cite = audit_crawl(bundle_citation)
+        crawl_cite = [f for f in findings_cite if f["id"] == "F-CRAWL-003"]
+        self.assertEqual(len(crawl_cite), 1, "Expected F-CRAWL-003 finding for blocked citation crawlers")
+        self.assertEqual(crawl_cite[0]["severity"], "critical", "Blocking live citation/retrieval crawlers must be severity 'critical'")
+        self.assertIn("Live Retrieval/Citation", crawl_cite[0]["evidence"])
+
+    def test_29_transient_probe_retry_guard(self):
+        """Reliability guard: Network probe retry prevents false-positive F-CRAWL-002 on transient 429/503 responses."""
+        from http_fetcher import fetch_target_bundle
+        from unittest.mock import patch
+
+        # Simulate first probe returning 429 and retry returning 200 (transient rate limit)
+        call_count = [0]
+        def mock_fetch_url(url, user_agent=None, timeout=6):
+            if "GPTBot" in (user_agent or ""):
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    return {"status": 429, "url": url, "html": "", "headers": {}, "is_local": False, "error": None}
+                return {"status": 200, "url": url, "html": "OK", "headers": {}, "is_local": False, "error": None}
+            return {"status": 200, "url": url, "html": "<html><body><h1>OK</h1></body></html>", "headers": {}, "is_local": False, "error": None}
+
+        with patch("http_fetcher.fetch_url", side_effect=mock_fetch_url):
+            with patch("http_fetcher.time.sleep", return_value=None):
+                bundle = fetch_target_bundle("https://example-transient.com")
+                # Bot probe should have retried and recovered to 200
+                self.assertEqual(bundle["bot_probe_status"], 200, "Expected probe retry to recover from transient 429")
+                self.assertEqual(call_count[0], 2, "Expected exactly 2 probe attempts (initial + 1 bounded retry)")
+                # audit_crawl should NOT emit F-CRAWL-002
+                findings = audit_crawl(bundle)
+                self.assertFalse(any(f["id"] == "F-CRAWL-002" for f in findings), "Transient 429 must not emit F-CRAWL-002 after successful retry")
 
 if __name__ == "__main__":
     unittest.main()
