@@ -47,7 +47,8 @@ Per Handout Page 1 (*"go find real websites that AI assistants cite well versus 
    - Word count >= 250 words $\rightarrow$ **SSR PASS** (immune to Next.js App Router streaming scripts).
    - Word count < 50 words AND empty mount root (`#root`, `#app`, `#__next`) $\rightarrow$ **CSR Barrier** (`critical`).
 3. **4-Way Freshness Corroboration**: Cross-checks timestamps across JSON-LD `dateModified`, OpenGraph `article:modified_time`, DOM `<time datetime>`, and HTTP `Last-Modified`.
-   - Timestamp age > 365 days across all available signals $\rightarrow$ **Stale Content** (`medium`).
+   - Conjunctive Staleness: Age > 365 days across all detected signals ($\max(\text{dates}) < \text{now} - 365\text{ days}$, confirming all channels are > 1 year old) $\rightarrow$ **Stale Content** (`medium`).
+   - Temporal Drift: Inter-channel divergence > 180 days between metadata, markup, and HTTP headers $\rightarrow$ **Temporal Signal Divergence** (`medium`).
 4. **Non-Text Imagery Trap**: Scans `<img>` tags. If > 40% of informative images lack meaningful `alt` attributes $\rightarrow$ **Non-Text Trap** (`medium`).
 5. **5-Second Orientation**: Primary `<h1>` must exist in top 3,000 characters and contain 5 to 150 characters, aligned with `<meta name="description">`.
 6. **Deterministic Passage Quotability & Reference Resolution Heuristic (Atomic Fact Self-Containment per Appendix B & C)**: Evaluates 500-char sliding windows in `<main>`/`<article>`. If Atomic Quotability Score (AQS) < 50 with >= 2 dangling pronoun chunks $\rightarrow$ **Quotability & Reference Resolution Risk** (`medium`).
