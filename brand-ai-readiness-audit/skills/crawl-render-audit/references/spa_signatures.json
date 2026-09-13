@@ -1,0 +1,20 @@
+{
+  "mount_roots": [
+    "root",
+    "app",
+    "__next",
+    "app-mount",
+    "main-outlet"
+  ],
+  "framework_markers": [
+    "__INITIAL_STATE__",
+    "__NEXT_DATA__",
+    "__NUXT__",
+    "window.__PRELOADED_STATE__",
+    "self.__next_f.push"
+  ],
+  "ssr_thresholds": {
+    "min_semantic_words": 250,
+    "max_empty_spa_chars": 150
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "overlay_indicators": [
+    "modal",
+    "newsletter-popup",
+    "paywall",
+    "gate",
+    "dialog-overlay"
+  ],
+  "trust_routes": [
+    "/privacy",
+    "/privacy-policy",
+    "/terms",
+    "/terms-of-service",
+    "/contact",
+    "/about",
+    "/about-us"
+  ],
+  "substantive_word_threshold": 150
+}

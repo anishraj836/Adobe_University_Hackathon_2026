@@ -1,0 +1,28 @@
+{
+  "Organization": {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "{{BRAND_NAME}}",
+    "url": "{{BRAND_URL}}",
+    "logo": "{{BRAND_URL}}/logo.png",
+    "description": "{{BRAND_DESCRIPTION}}",
+    "sameAs": [
+      "https://www.linkedin.com/company/{{BRAND_SLUG}}",
+      "https://www.crunchbase.com/organization/{{BRAND_SLUG}}"
+    ]
+  },
+  "FAQPage": {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What does {{BRAND_NAME}} do?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "{{BRAND_DESCRIPTION}}"
+        }
+      }
+    ]
+  }
+}

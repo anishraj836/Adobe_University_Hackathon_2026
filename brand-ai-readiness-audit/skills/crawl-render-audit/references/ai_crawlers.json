@@ -1,0 +1,63 @@
+{
+  "crawlers": [
+    {
+      "name": "GPTBot",
+      "user_agent": "GPTBot/1.2",
+      "owner": "OpenAI",
+      "purpose": "Web search & training data"
+    },
+    {
+      "name": "ChatGPT-User",
+      "user_agent": "ChatGPT-User/1.0",
+      "owner": "OpenAI",
+      "purpose": "Direct user browse queries"
+    },
+    {
+      "name": "ClaudeBot",
+      "user_agent": "ClaudeBot/1.0",
+      "owner": "Anthropic",
+      "purpose": "Web search & citations"
+    },
+    {
+      "name": "PerplexityBot",
+      "user_agent": "PerplexityBot/1.0",
+      "owner": "Perplexity",
+      "purpose": "Real-time AI search answer synthesis"
+    },
+    {
+      "name": "Google-Extended",
+      "user_agent": "Google-Extended",
+      "owner": "Google",
+      "purpose": "Gemini & Vertex training / citations"
+    },
+    {
+      "name": "Applebot-Extended",
+      "user_agent": "Applebot-Extended",
+      "owner": "Apple",
+      "purpose": "Apple Intelligence web foundation models"
+    },
+    {
+      "name": "Amazonbot",
+      "user_agent": "Amazonbot/0.1",
+      "owner": "Amazon",
+      "purpose": "Alexa & Bedrock AI search"
+    },
+    {
+      "name": "Bytespider",
+      "user_agent": "Bytespider",
+      "owner": "ByteDance",
+      "purpose": "TikTok & Doubao LLM discovery"
+    },
+    {
+      "name": "CCBot",
+      "user_agent": "CCBot/2.0",
+      "owner": "Common Crawl",
+      "purpose": "Foundational open training corpus"
+    }
+  ],
+  "meta_robots_blockers": [
+    "noindex",
+    "noai",
+    "noimageai"
+  ]
+}

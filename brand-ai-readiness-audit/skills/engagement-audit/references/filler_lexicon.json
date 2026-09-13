@@ -1,0 +1,17 @@
+{
+  "fluff_words": [
+    "revolutionary", "next-gen", "next-generation", "seamless", "seamlessly",
+    "cutting-edge", "game-changing", "paradigm", "disruptive", "synergy",
+    "synergize", "world-class", "state-of-the-art", "reimagine", "supercharge",
+    "transformative", "unparalleled", "best-in-class", "holistic", "empowering",
+    "effortless", "frictionless", "groundbreaking", "unrivaled", "robustly",
+    "hyper-scale", "turnkey-magic", "bespoke-ai", "future-proof", "quantum-leap"
+  ],
+  "quantified_patterns": [
+    "\\b\\d+(?:\\.\\d+)?%\\b",
+    "\\b(?:\\$|€|£|¥)\\d+",
+    "\\b\\d+\\s*(?:ms|seconds|minutes|hours|days|gb|tb|mb|kb|req/s|rps|tps)\\b",
+    "\\b(?:soc2|hipaa|gdpr|iso\\s*\\d+|pci-dss|fedramp)\\b",
+    "\\b(?:python|rust|golang|docker|kubernetes|aws|gcp|azure)\\b"
+  ]
+}

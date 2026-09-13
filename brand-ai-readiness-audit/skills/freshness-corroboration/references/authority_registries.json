@@ -1,0 +1,44 @@
+{
+  "registries": [
+    {
+      "domain": "wikidata.org",
+      "label": "Wikidata Knowledge Graph",
+      "weight": "high"
+    },
+    {
+      "domain": "wikipedia.org",
+      "label": "Wikipedia Article",
+      "weight": "high"
+    },
+    {
+      "domain": "linkedin.com",
+      "label": "LinkedIn Company Profile",
+      "weight": "medium"
+    },
+    {
+      "domain": "crunchbase.com",
+      "label": "Crunchbase Entity Record",
+      "weight": "medium"
+    },
+    {
+      "domain": "github.com",
+      "label": "GitHub Organization",
+      "weight": "medium"
+    },
+    {
+      "domain": "x.com",
+      "label": "Official X / Twitter Profile",
+      "weight": "low"
+    },
+    {
+      "domain": "twitter.com",
+      "label": "Official Twitter Profile",
+      "weight": "low"
+    },
+    {
+      "domain": "google.com/maps",
+      "label": "Google Business Profile",
+      "weight": "high"
+    }
+  ]
+}
