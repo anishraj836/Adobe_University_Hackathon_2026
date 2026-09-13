@@ -43,6 +43,25 @@ Unlike generic SEO checkers that merely look at legacy `<title>` tags or word co
 
 ## 2. Marketplace Architecture & Composition
 
+The execution pipeline coordinates audit dispatch sequentially with causal error shielding:
+
+```text
+Target URL / Local Fixture Path
+        |
+        v
+audit-orchestrator (entrypoint: run_audit.py)
+        |
+        +--> [1] crawl-render-audit (causal shield halts cascade if blocked)
+        +--> [2] freshness-corroboration
+        +--> [3] engagement-audit
+        |
+        v
+proactive_engine (evidence-conditioned turnkey fixes)
+        |
+        v
+Unified Audit Report (schema-validated JSON)
+```
+
 The marketplace contains four narrowly-scoped, autonomous skills with genuine separation of concerns:
 
 ```text
