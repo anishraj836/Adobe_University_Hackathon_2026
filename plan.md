@@ -106,7 +106,8 @@ brand-ai-readiness-audit/
 ├── test_audit.py                      # Regression test suite (0.015s offline)
 ├── fixtures/                          # 5 synthetic offline HTML/robots.txt test suites
 ├── references/
-│   └── field_research.md             # Empirical wild site contrast analysis
+│   ├── field_research.md             # Empirical wild site contrast analysis
+│   └── worked_examples.md            # Bad vs Good contrast benchmarks (Quotability & Filler)
 └── skills/
     ├── audit-orchestrator/            # [ENTRYPOINT]
     │   ├── SKILL.md                   # Declares allowed-tools, RFC 9309 compliance
@@ -130,10 +131,14 @@ brand-ai-readiness-audit/
     │   │   ├── nontext_inspector.py   # Uncaptioned media & alt-text inspector
     │   │   └── audit_freshness.py     # Autonomous composed runner CLI
     │   └── references/ (jsonld_templates.json, authority_registries.json, polysemy_dictionary.json)
-    └── engagement-audit/
+    └── engagement-audit/              # Decomposed into 4 single-responsibility modules:
         ├── SKILL.md
         ├── scripts/
-        │   └── audit_engagement.py    # RAG quotability & Lexical Density anti-filler
+        │   ├── orientation_evaluator.py # 5-second orientation, viewport & meta description
+        │   ├── hierarchy_evaluator.py   # Heading hierarchy & deep citation anchors
+        │   ├── quotability_evaluator.py # Passage slicing & Atomic Quotability (Appendix B/C)
+        │   ├── filler_evaluator.py      # Lexical Density & Fact-to-Filler Ratio (Appendix F)
+        │   └── audit_engagement.py    # Autonomous composed runner CLI
         └── references/ (orientation_rubric.md, friction_patterns.json, filler_lexicon.json)
 ```
 
@@ -143,6 +148,6 @@ brand-ai-readiness-audit/
 
 - **Recommend-Only**: 100% passive, read-only inspection. Zero live site mutations.
 - **RFC 9309 Robots.txt Compliance**: Strictly respects disallow rules.
-- **Runtime Budget**: Executes in < 0.05 seconds offline and < 20 seconds live (Budget: < 5 minutes).
+- **Runtime Budget**: Executes in < 1 second offline (typically ~0.02s) and < 15 seconds live (Ceiling: < 5 minutes).
 - **Package Size**: < 2 MB including all fixtures and references (Ceiling: < 50 MB; no binary model weights).
 - **Zero External Dependencies**: Pure Python standard library reliability with automatic acceleration if `requests`/`bs4` present.

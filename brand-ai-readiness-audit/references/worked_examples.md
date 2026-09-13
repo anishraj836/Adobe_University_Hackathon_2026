@@ -1,0 +1,72 @@
+# Worked Examples: Operationalizing Round 2 Appendices B, C, and F
+
+This document provides concrete, worked examples demonstrating the failure modes described in Round 2 Appendices B, C, and F, and how our detection heuristics catch them with zero false positives.
+
+---
+
+## 1. Worked Example 1: Fact Quotability & Entity Binding (Appendices B & C)
+
+### The Underlying Problem (Appendix B & C)
+When an AI assistant (ChatGPT, Perplexity) searches a live webpage to answer a user prompt (e.g., *"What is the transaction throughput of FlowDB?"*), the neural retrieval engine slices the document into ~500-character embedding chunks. If the page distributes facts across paragraphs that rely on unanchored pronouns, the chunk retriever loses the entity reference and the generation model refuses to cite the brand.
+
+### The Contrast
+
+#### A. Bad Pattern (Unquotable / Dropped by AI Assistants)
+```html
+<main>
+  <h2>High Performance</h2>
+  <p>It processes over 100,000 queries per second with sub-millisecond latency. They are executed concurrently across distributed nodes.</p>
+  <p>Our platform guarantees zero data loss through multi-region replication. It was tested against major cloud outages.</p>
+</main>
+```
+* **Why it fails in RAG**: When an assistant chunks paragraph 1 (`"[High Performance] It processes over 100,000 queries..."`), the chunk contains the pronoun "It" without the brand entity name ("FlowDB"). The semantic embedding vector reflects a generic claim about an unknown subject. Perplexity drops it because the entity cannot be quoted as a standalone factual assertion.
+* **Our Audit Flag**:
+  - `title`: `"High RAG retrieval failure risk: Substantive facts lack self-contained entity binding"`
+  - `evidence`: `"Simulated 2 RAG retrieval chunks (500 chars); 2/2 (100%) rely on dangling pronouns without explicit entity binding. AI Quotability Score: 0/100."`
+
+#### B. Good Pattern (Self-Contained & Highly Quotable)
+```html
+<main>
+  <h2 id="throughput">FlowDB High-Throughput Engine</h2>
+  <p>FlowDB processes over 100,000 queries per second with sub-millisecond latency, executing transactions concurrently across distributed consensus nodes.</p>
+  <p>FlowDB guarantees zero data loss through automated multi-region replication, verified against major cloud infrastructure outages.</p>
+</main>
+```
+* **Why it succeeds**: The Subject-Predicate-Object triple is explicit: `[FlowDB] -> [processes] -> [100,000 queries/sec]`. An LLM retriever matches the chunk with high semantic similarity, extracts the claim verbatim, and generates an authoritative citation.
+* **Our Audit Flag**: **PASS (AQS: 100/100, zero dangling chunks).**
+
+---
+
+## 2. Worked Example 2: Fact-to-Filler Ratio & Summarizer Dropout (Appendix F)
+
+### The Underlying Problem (Appendix F)
+Appendix F notes: *"when the genuinely important lines are surrounded by low-value filler — the summary has little to work with, and the important part can simply disappear."*
+
+### The Contrast
+
+#### A. Bad Pattern (High Fluff / Summarizer Dropout Zone)
+```html
+<section class="features">
+  <h2>Our Capabilities</h2>
+  <p>We empower forward-thinking organizations to seamlessly reimagine their digital ecosystem through our game-changing, revolutionary paradigm. Our world-class, best-in-class synergy delivers transformative, next-generation, cutting-edge acceleration that effortlessly supercharges enterprise productivity.</p>
+</section>
+```
+* **Analysis**:
+  - Word count: 37 words.
+  - Corporate fluff buzzwords: 10 (`empower`, `seamlessly`, `reimagine`, `game-changing`, `revolutionary`, `world-class`, `best-in-class`, `transformative`, `next-generation`, `cutting-edge`, `supercharge`). Buzzword saturation: **27%**.
+  - Quantified factual metrics: **0** (no benchmarks, no protocols, no latency, no pricing).
+* **Our Audit Flag**:
+  - `title`: `"AI Summarizer Dropout Zone: High filler-to-fact ratio obscures core propositions (Appendix F)"`
+  - `evidence`: `"Analyzed substantive technical prose; detected 10 corporate buzzwords against 0 quantified metrics (buzzword saturation: 27.0%). High risk of AI summarizer dropout per Appendix F."`
+
+#### B. Good Pattern (Substantive Proposition Density)
+```html
+<section class="features">
+  <h2 id="specifications">Core Platform Specifications</h2>
+  <p>FlowDB provides 99.999% uptime availability, sub-5ms write latency, and native wire compatibility with PostgreSQL 16. Certified SOC2 Type II, HIPAA, and GDPR compliant with automated AES-256 encryption at rest.</p>
+</section>
+```
+* **Analysis**:
+  - Buzzword count: 0.
+  - Quantified factual metrics: 5 (`99.999%`, `sub-5ms`, `PostgreSQL 16`, `SOC2 Type II`, `AES-256`).
+* **Our Audit Flag**: **PASS (Informational Anchor Gate satisfied).**

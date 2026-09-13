@@ -49,8 +49,11 @@ The marketplace contains four narrowly-scoped, autonomous skills with genuine se
 brand-ai-readiness-audit/
 ├── marketplace.json                   # Contest manifest (designates entrypoint: true)
 ├── README.md                          # This architecture & usage guide
-├── test_audit.py                      # Automated regression suite (< 0.05s execution)
+├── test_audit.py                      # Automated regression suite (< 0.03s execution)
 ├── fixtures/                          # 5 synthetic offline HTML/robots.txt test suites
+├── references/                        # Empirical research & concrete contrast benchmarks
+│   ├── field_research.md             # Empirical wild site contrasts (Cloudflare, NYT, Stripe, Linear)
+│   └── worked_examples.md            # Bad vs Good text examples (Quotability & Fact-to-Filler)
 └── skills/
     ├── audit-orchestrator/            # [ENTRYPOINT] Composes sub-skills, shields errors, emits JSON
     │   ├── SKILL.md
@@ -62,11 +65,11 @@ brand-ai-readiness-audit/
     │   └── references/ (ai_crawlers.json, spa_signatures.json)
     ├── freshness-corroboration/       # Audits JSON-LD, entity ambiguity, multi-source freshness
     │   ├── SKILL.md
-    │   ├── scripts/ (audit_freshness.py)
+    │   ├── scripts/ (audit_freshness.py, schema_evaluator.py, entity_resolver.py, freshness_evaluator.py, nontext_inspector.py)
     │   └── references/ (jsonld_templates.json, authority_registries.json, polysemy_dictionary.json)
     └── engagement-audit/              # Audits 5s orientation, RAG quotability, lexical density
         ├── SKILL.md
-        ├── scripts/ (audit_engagement.py)
+        ├── scripts/ (audit_engagement.py, orientation_evaluator.py, hierarchy_evaluator.py, quotability_evaluator.py, filler_evaluator.py)
         └── references/ (orientation_rubric.md, friction_patterns.json, filler_lexicon.json)
 ```
 
@@ -104,7 +107,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 ```bash
 python3 test_audit.py
 ```
-*All 7 regression tests execute in `< 0.03 seconds` offline.*
+*All 9 regression tests execute in `< 0.03 seconds` offline (< 1 second total offline, < 15 seconds live).*
 
 ---
 
@@ -118,8 +121,7 @@ python3 test_audit.py
     "total_findings": 6,
     "critical": 1,
     "high": 2,
-    "medium": 3,
-    "low": 0
+    "medium": 3
   },
   "findings": [
     {
