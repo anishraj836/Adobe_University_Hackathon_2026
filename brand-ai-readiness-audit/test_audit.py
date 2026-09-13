@@ -486,5 +486,69 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(blocked_unsafe, "True positive missed: Path-scoped disallow was not flagged as blocked!")
         self.assertIn("/private/", reason_unsafe)
 
+    def test_21_csr_data_island_severity_downgrade_guard(self):
+        """CSR data-island: Empty mount root with __NEXT_DATA__ JSON state downgrades from critical to medium."""
+        # Safe-ish Case: Empty mount root (<div id="root"></div>) and thin prose (<50 words), but with non-trivial __NEXT_DATA__ JSON
+        next_json = '{"props":{"pageProps":{"title":"Enterprise Cloud","pricing":"$99/mo"}}}'
+        data_island_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Next.js App</title>
+          <script id="__NEXT_DATA__" type="application/json">{next_json}</script>
+        </head>
+        <body>
+          <div id="root"></div>
+          <p>Loading application...</p>
+        </body>
+        </html>
+        """
+        bundle_island = {"html": data_island_html, "is_local": True}
+        findings_island = audit_crawl(bundle_island)
+        csr_island = [f for f in findings_island if f["id"] == "F-CRAWL-006"]
+        self.assertEqual(len(csr_island), 1, "Expected F-CRAWL-006 finding for empty mount root")
+        self.assertEqual(csr_island[0]["severity"], "medium", f"Expected severity 'medium' for data island, got {csr_island[0]['severity']}")
+        self.assertIn("__NEXT_DATA__", csr_island[0]["evidence"])
+        self.assertEqual(csr_island[0]["suggested_action"]["priority"], "medium")
+
+        # Full-barrier Case: Same empty root and thin prose, but NO data island anywhere
+        no_island_html = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Pure React App</title></head>
+        <body>
+          <div id="root"></div>
+          <p>Loading application...</p>
+        </body>
+        </html>
+        """
+        bundle_no_island = {"html": no_island_html, "is_local": True}
+        findings_no_island = audit_crawl(bundle_no_island)
+        csr_no_island = [f for f in findings_no_island if f["id"] == "F-CRAWL-006"]
+        self.assertEqual(len(csr_no_island), 1, "Expected F-CRAWL-006 finding for empty mount root")
+        self.assertEqual(csr_no_island[0]["severity"], "critical", f"Expected severity 'critical' without data island, got {csr_no_island[0]['severity']}")
+        self.assertNotIn("__NEXT_DATA__", csr_no_island[0]["evidence"])
+
+    def test_22_technical_prose_fluff_lexicon_no_false_positive(self):
+        """Filler evaluator: Domain-appropriate technical prose with 1-2 lexicon words ('seamless', 'state-of-the-art') does not flag."""
+        sample_prose = """
+        <article>
+          <h2>Distributed Consensus Architecture</h2>
+          <p>
+            Our replication engine ensures seamless state transitions across heterogeneous worker nodes.
+            The primary coordinator maintains consistent event ordering while follower nodes acknowledge log append operations.
+            By decoupling transactional commit phases from local disk flushing, the pipeline provides state-of-the-art durability guarantees without blocking network threads.
+            Failover coordinators elect active leaders through randomized election timeouts to avoid split-brain scenarios during partition events.
+            Each replica maintains an append-only transaction ledger with monotonic sequence counters to verify log synchronization integrity.
+            Network boundaries remain isolated through mutual certificate verification and deterministic packet validation routines across all clustered nodes in the mesh.
+          </p>
+        </article>
+        """
+        res = evaluate_filler(sample_prose)
+        self.assertFalse(res["flagged"], f"False positive: Substantive technical prose flagged as filler: {res}")
+        self.assertGreaterEqual(res["fluff_count"], 1, "Expected at least 1 fluff word detected")
+        self.assertLess(res["fluff_count"], 5, "Fluff count should be below the 5-hit threshold floor")
+        self.assertEqual(res["quant_matches"], 0, "Expected 0 quantified metrics to test the unquantified technical prose guard")
+
 if __name__ == "__main__":
     unittest.main()

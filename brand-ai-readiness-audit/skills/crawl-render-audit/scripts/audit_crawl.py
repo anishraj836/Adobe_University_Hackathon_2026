@@ -100,6 +100,74 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
 
     return False, "Default-allowed under RFC 9309"
 
+def detect_data_island(html: str) -> tuple:
+    """
+    Detects inline serialized state data islands (Next.js, Nuxt, generic application/json state).
+    Returns (pattern_name, byte_size) or (None, 0).
+    """
+    # 1. Next.js __NEXT_DATA__
+    next_match = re.search(
+        r'<script\b[^>]*\bid=["\']__NEXT_DATA__["\'][^>]*>(.*?)<\/script>',
+        html,
+        re.I | re.DOTALL
+    )
+    if next_match:
+        content = next_match.group(1).strip()
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, (dict, list)) and len(parsed) > 0:
+                return "__NEXT_DATA__", len(content.encode("utf-8"))
+        except Exception:
+            if len(content) > 10:
+                return "__NEXT_DATA__", len(content.encode("utf-8"))
+
+    # 2. Nuxt __NUXT__ or __NUXT_DATA__
+    nuxt_data_match = re.search(
+        r'<script\b[^>]*\bid=["\']__NUXT_DATA__["\'][^>]*>(.*?)<\/script>',
+        html,
+        re.I | re.DOTALL
+    )
+    if nuxt_data_match:
+        content = nuxt_data_match.group(1).strip()
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, (dict, list)) and len(parsed) > 0:
+                return "__NUXT_DATA__", len(content.encode("utf-8"))
+        except Exception:
+            if len(content) > 10:
+                return "__NUXT_DATA__", len(content.encode("utf-8"))
+
+    nuxt_window_match = re.search(
+        r'<script\b[^>]*>(?:[^<]*\b(?:window\.)?__NUXT__\s*=\s*([^\n<]+))',
+        html,
+        re.I | re.DOTALL
+    )
+    if nuxt_window_match:
+        content = nuxt_window_match.group(1).strip()
+        if len(content) > 10:
+            return "__NUXT__", len(content.encode("utf-8"))
+
+    # 3. Standalone <script type="application/json"> (excluding schema.org application/ld+json)
+    for match in re.finditer(
+        r'<script\b([^>]*\btype=["\']application\/json["\'][^>]*)>(.*?)<\/script>',
+        html,
+        re.I | re.DOTALL
+    ):
+        attrs = match.group(1)
+        if "application/ld+json" in attrs.lower() or "__NEXT_DATA__" in attrs or "__NUXT_DATA__" in attrs:
+            continue
+        content = match.group(2).strip()
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, (dict, list)) and len(parsed) > 0:
+                id_m = re.search(r'id=["\']([^"\']+)["\']', attrs, re.I)
+                name = id_m.group(1) if id_m else "application/json"
+                return name, len(content.encode("utf-8"))
+        except Exception:
+            pass
+
+    return None, 0
+
 def audit_crawl(bundle: dict) -> list[dict]:
     """Execute all crawl-render checks on the fetched site bundle."""
     findings = []
@@ -213,16 +281,29 @@ def audit_crawl(bundle: dict) -> list[dict]:
     has_empty_root = bool(re.search(r'<div\s+id=["\'](root|app|__next)["\']\s*>\s*<\/div>', html, re.I))
 
     if has_empty_root and word_count < 50:
-        findings.append({
-            "id": "F-CRAWL-006",
-            "title": "Client-Side Rendering (CSR) barrier locks content from AI crawlers",
-            "severity": "critical",
-            "evidence": f"Raw HTML contains empty mount root (<div id='root'>) and only {word_count} visible text words without JS execution.",
-            "suggested_action": {
-                "summary": "Implement Server-Side Rendering (SSR) or Static Site Generation (SSG) so search crawlers receive pre-rendered HTML without executing client JavaScript bundles.",
-                "priority": "critical"
-            }
-        })
+        data_island_name, data_island_bytes = detect_data_island(html)
+        if data_island_name:
+            findings.append({
+                "id": "F-CRAWL-006",
+                "title": "Client-Side Rendering (CSR) barrier locks content from AI crawlers",
+                "severity": "medium",
+                "evidence": f"Empty mount root with {word_count} visible words, but detected an inline `{data_island_name}` JSON data island ({data_island_bytes} bytes) that may expose structured facts to crawlers capable of parsing embedded JSON state.",
+                "suggested_action": {
+                    "summary": "Expose the data currently locked in the client-side JSON state block as static, crawlable HTML/JSON-LD, or implement full SSR so plain-text crawlers can read it directly.",
+                    "priority": "medium"
+                }
+            })
+        else:
+            findings.append({
+                "id": "F-CRAWL-006",
+                "title": "Client-Side Rendering (CSR) barrier locks content from AI crawlers",
+                "severity": "critical",
+                "evidence": f"Raw HTML contains empty mount root (<div id='root'>) and only {word_count} visible text words without JS execution.",
+                "suggested_action": {
+                    "summary": "Implement Server-Side Rendering (SSR) or Static Site Generation (SSG) so search crawlers receive pre-rendered HTML without executing client JavaScript bundles.",
+                    "priority": "critical"
+                }
+            })
     elif word_count < 100 and not has_empty_root and len(html) > 500:
         findings.append({
             "id": "F-CRAWL-007",

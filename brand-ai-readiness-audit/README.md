@@ -146,7 +146,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 
 ### Running the Test & Benchmark Suites
 ```bash
-# Automated regression unit tests (20 tests in ~0.04s)
+# Automated regression unit tests (22 tests in ~0.03s)
 python3 test_audit.py
 
 # Full 5-step benchmark scorecard (latency percentiles, ground truth accuracy)
@@ -179,6 +179,8 @@ Every false-positive safeguard in this marketplace is backed by a bidirectional 
 | **Editorial & Narrative Copy** | Flags founder letters, stories, and personal blogs for low passage quotability due to narrative pronouns. | Evaluator explicitly inspects container tokens (`founder-letter`, `personal-story`, `blog-post`) and exempts narrative copy. | `test_18_narrative_container_quotability_guard` |
 | **Hero Zone Marketing Branding** | Flags punchy hero headlines for high corporate fluff or lack of quantified metrics. | Strips hero, banner, and jumbotron containers before evaluating Lexical Density Ratio (LDR); hero branding is exempt. | `test_19_hero_zone_filler_exemption_guard` |
 | **RFC 9309 Path-Scoped Disallows** | Either assumes any `Disallow:` blocks the bot, or only checks for root `Disallow: /`. | Respects RFC 9309 semantics: empty `Disallow:` is permitted, while path-scoped rules (`Disallow: /private/`) are flagged as partial blocks. | `test_20_path_scoped_robots_disallow_guard` |
+| **CSR Inline Data-Island Downgrade** | Flags all thin-prose mount roots as critical barriers even when rich JSON state is serialized inline. | Detects `__NEXT_DATA__`, Nuxt state, and JSON blocks; downgrades finding to `medium` and identifies data payload byte size. | `test_21_csr_data_island_severity_downgrade_guard` |
+| **Technical Prose Fluff Immunity** | Over-penalizes legitimate technical prose using literal words like "seamless" without quantified metrics. | Compound gate (`words >= 80`, `fluff >= 5`, `ratio > 3.5%`) prevents false positives on substantive engineering text. | `test_22_technical_prose_fluff_lexicon_no_false_positive` |
 
 These tests demonstrate that the marketplace discriminates between genuine architectural barriers and intentional, standard web design patterns.
 
