@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.join(BASE_DIR, "skills/engagement-audit/scripts"))
 from run_audit import run_audit
 from schema_validator import validate_report_schema
 from proactive_engine import generate_proactive_actions
+from freshness_evaluator import evaluate_freshness, extract_temporal_signals
 
 class TestBrandAIReadinessAudit(unittest.TestCase):
 
@@ -311,6 +312,43 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         ext_report["crawl_duration_ms"] = 14.2
         valid, errs = validate_report_schema(ext_report)
         self.assertTrue(valid, f"Extension field rejected contrary to floor spec: {errs}")
+
+    def test_14_multichannel_freshness_and_temporal_drift(self):
+        # Case A: Multi-channel corroboration of stale dates (> 365 days across all channels)
+        stale_html = """
+        <html>
+        <head>
+          <meta property="article:modified_time" content="2021-06-01">
+        </head>
+        <body>
+          <time datetime="2021-05-15">May 15, 2021</time>
+        </body>
+        </html>
+        """
+        stale_headers = {"last-modified": "Tue, 01 Jun 2021 12:00:00 GMT"}
+        stale_jsonld = [{"dateModified": "2021-06-01"}]
+
+        stale_findings = evaluate_freshness(stale_html, stale_headers, stale_jsonld)
+        self.assertTrue(any(f["id"] == "F-FRESH-005" for f in stale_findings))
+        f_stale = next(f for f in stale_findings if f["id"] == "F-FRESH-005")
+        self.assertIn("All 4 detected temporal channel(s) corroborate", f_stale["evidence"])
+
+        # Case B: Temporal drift / desynchronization between channels (e.g. fresh HTTP header vs stale JSON-LD)
+        drift_html = """
+        <html>
+        <head>
+          <meta property="article:modified_time" content="2026-09-01">
+        </head>
+        <body></body>
+        </html>
+        """
+        drift_headers = {"last-modified": "Mon, 01 Sep 2026 12:00:00 GMT"}
+        drift_jsonld = [{"dateModified": "2021-01-10"}] # 5-year gap!
+
+        drift_findings = evaluate_freshness(drift_html, drift_headers, drift_jsonld)
+        self.assertTrue(any(f["id"] == "F-FRESH-007" for f in drift_findings))
+        f_drift = next(f for f in drift_findings if f["id"] == "F-FRESH-007")
+        self.assertIn("Conflicting temporal timestamps", f_drift["evidence"])
 
 if __name__ == "__main__":
     unittest.main()

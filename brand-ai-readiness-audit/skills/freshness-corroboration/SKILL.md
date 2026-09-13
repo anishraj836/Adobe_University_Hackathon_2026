@@ -20,7 +20,7 @@ Use when diagnosing why an AI assistant misrepresents, hallucinates about, or ig
 Composed of 4 dedicated sub-modules:
 1. `schema_evaluator.py`: Validates syntax, structure, and required properties for `Organization`, `WebSite`, `Product`, `FAQPage`.
 2. `entity_resolver.py`: Evaluates `sameAs` knowledge graph links and on-site disambiguation posture (Round 2 Appendix D) for homonym brands.
-3. `freshness_evaluator.py`: Corroborates dates across JSON-LD `dateModified`, OpenGraph timestamps, `<time>` tags, and HTTP `Last-Modified`.
+3. `freshness_evaluator.py`: Corroborates dates across JSON-LD `dateModified`, OpenGraph timestamps, `<time>` tags, and HTTP `Last-Modified`. Detects uniform staleness (> 365 days across all channels) and cross-channel temporal drift (> 180 days divergence).
 4. `nontext_inspector.py`: Identifies uncaptioned informative imagery missing descriptive `alt` attributes.
 
 ## Guardrails & Compliance
