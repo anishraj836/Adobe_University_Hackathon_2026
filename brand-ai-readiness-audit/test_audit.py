@@ -529,6 +529,27 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertEqual(csr_no_island[0]["severity"], "critical", f"Expected severity 'critical' without data island, got {csr_no_island[0]['severity']}")
         self.assertNotIn("__NEXT_DATA__", csr_no_island[0]["evidence"])
 
+        # Adversarial Case C: Empty root with 11+ chars of unstructured non-JSON noise in __NEXT_DATA__ (must NOT downgrade)
+        garbage_island_html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Broken Build App</title>
+          <script id="__NEXT_DATA__">xxxxxxxxxxx</script>
+        </head>
+        <body>
+          <div id="root"></div>
+          <p>Loading application...</p>
+        </body>
+        </html>
+        """
+        bundle_garbage = {"html": garbage_island_html, "is_local": True}
+        findings_garbage = audit_crawl(bundle_garbage)
+        csr_garbage = [f for f in findings_garbage if f["id"] == "F-CRAWL-006"]
+        self.assertEqual(len(csr_garbage), 1, "Expected F-CRAWL-006 finding for empty mount root")
+        self.assertEqual(csr_garbage[0]["severity"], "critical", f"Expected severity 'critical' for non-JSON garbage script content, got {csr_garbage[0]['severity']}")
+        self.assertNotIn("__NEXT_DATA__", csr_garbage[0]["evidence"])
+
     def test_22_technical_prose_fluff_lexicon_no_false_positive(self):
         """Filler evaluator: Domain-appropriate technical prose with 1-2 lexicon words ('seamless', 'state-of-the-art') does not flag."""
         sample_prose = """

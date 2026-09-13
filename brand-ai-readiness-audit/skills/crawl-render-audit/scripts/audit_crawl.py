@@ -100,6 +100,10 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
 
     return False, "Default-allowed under RFC 9309"
 
+def has_structured_state(content: str) -> bool:
+    """Verifies that unparsed script content contains genuine structured key-value state, not arbitrary noise."""
+    return ("{" in content or "[" in content) and bool(re.search(r'["\']?\w{2,}["\']?\s*:', content))
+
 def detect_data_island(html: str) -> tuple:
     """
     Detects inline serialized state data islands (Next.js, Nuxt, generic application/json state).
@@ -118,7 +122,7 @@ def detect_data_island(html: str) -> tuple:
             if isinstance(parsed, (dict, list)) and len(parsed) > 0:
                 return "__NEXT_DATA__", len(content.encode("utf-8"))
         except Exception:
-            if len(content) > 10:
+            if has_structured_state(content):
                 return "__NEXT_DATA__", len(content.encode("utf-8"))
 
     # 2. Nuxt __NUXT__ or __NUXT_DATA__
@@ -134,7 +138,7 @@ def detect_data_island(html: str) -> tuple:
             if isinstance(parsed, (dict, list)) and len(parsed) > 0:
                 return "__NUXT_DATA__", len(content.encode("utf-8"))
         except Exception:
-            if len(content) > 10:
+            if has_structured_state(content):
                 return "__NUXT_DATA__", len(content.encode("utf-8"))
 
     nuxt_window_match = re.search(
@@ -144,7 +148,7 @@ def detect_data_island(html: str) -> tuple:
     )
     if nuxt_window_match:
         content = nuxt_window_match.group(1).strip()
-        if len(content) > 10:
+        if has_structured_state(content):
             return "__NUXT__", len(content.encode("utf-8"))
 
     # 3. Standalone <script type="application/json"> (excluding schema.org application/ld+json)
@@ -164,7 +168,10 @@ def detect_data_island(html: str) -> tuple:
                 name = id_m.group(1) if id_m else "application/json"
                 return name, len(content.encode("utf-8"))
         except Exception:
-            pass
+            if has_structured_state(content):
+                id_m = re.search(r'id=["\']([^"\']+)["\']', attrs, re.I)
+                name = id_m.group(1) if id_m else "application/json"
+                return name, len(content.encode("utf-8"))
 
     return None, 0
 
