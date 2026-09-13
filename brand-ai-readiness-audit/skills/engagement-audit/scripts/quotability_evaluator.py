@@ -18,10 +18,11 @@ def evaluate_quotability(html: str, brand_hint: str = "") -> dict:
     4. Conservative threshold: Only flags if >= 2 real dangling chunks and score < 50.
     """
     main_match = re.search(r'<(main|article)\b[^>]*>(.*?)<\/\1>', html, re.DOTALL | re.IGNORECASE)
+    container_html = main_match.group(0) if main_match else html
     eval_html = main_match.group(2) if main_match else html
 
     # Scope Gate: Exclude narrative/editorial blog containers
-    if re.search(r'\b(founder-letter|personal-story|blog-post|author-bio)\b', eval_html, re.I):
+    if re.search(r'\b(founder-letter|personal-story|blog-post|author-bio)\b', container_html, re.I):
         return {"flagged": False, "score": 100, "evidence": "Narrative container exempted by scope gate."}
 
     sections = re.split(r'(<h[1-4]\b[^>]*>.*?<\/h[1-4]>)', eval_html, flags=re.I | re.DOTALL)

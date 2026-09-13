@@ -78,7 +78,7 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
         disallows = entry.get("disallow", [])
         if "/" in allows:
             return False, f"Explicitly permitted by 'User-agent: {bot}' Allow: /"
-        if "/" in disallows or ("" in disallows and len(disallows) == 1):
+        if "/" in disallows:
             return True, f"Explicitly blocked by 'User-agent: {bot}' Disallow: /"
         dis_paths = [d for d in disallows if d]
         if dis_paths:

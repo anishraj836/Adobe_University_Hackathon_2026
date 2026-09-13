@@ -21,6 +21,11 @@ from run_audit import run_audit
 from schema_validator import validate_report_schema
 from proactive_engine import generate_proactive_actions
 from freshness_evaluator import evaluate_freshness, extract_temporal_signals
+from entity_resolver import evaluate_entity
+from audit_crawl import audit_crawl, parse_robots_records, is_bot_blocked
+from conversion_evaluator import evaluate_conversion
+from quotability_evaluator import evaluate_quotability
+from filler_evaluator import evaluate_filler
 
 class TestBrandAIReadinessAudit(unittest.TestCase):
 
@@ -349,6 +354,137 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(any(f["id"] == "F-FRESH-007" for f in drift_findings))
         f_drift = next(f for f in drift_findings if f["id"] == "F-FRESH-007")
         self.assertIn("Conflicting temporal timestamps", f_drift["evidence"])
+
+    def test_15_common_word_brand_disambiguation_guard(self):
+        """Entity ambiguity: Common-word brand with legalName and sameAs passes; generic brand without disambiguation fails."""
+        # Safe Case: "Linear" with legalName and authoritative sameAs links
+        safe_html = "<html><head><title>Linear | Issue Tracking</title></head><body></body></html>"
+        safe_jsonld = [{
+            "@type": "Organization",
+            "name": "Linear",
+            "legalName": "Linear Orbit Inc.",
+            "sameAs": [
+                "https://www.wikidata.org/wiki/Q100",
+                "https://en.wikipedia.org/wiki/Linear"
+            ]
+        }]
+        safe_findings = evaluate_entity(safe_html, safe_jsonld)
+        self.assertFalse(any(f["id"] == "F-FRESH-008" for f in safe_findings), "False positive: Disambiguated brand flagged for hallucination risk!")
+
+        # Unsafe Case: "Linear" with NO legalName, NO disambiguatingDescription, and NO sameAs links
+        unsafe_html = "<html><head><title>Linear | Issue Tracking</title></head><body></body></html>"
+        unsafe_jsonld = [{"@type": "Organization", "name": "Linear"}]
+        unsafe_findings = evaluate_entity(unsafe_html, unsafe_jsonld)
+        self.assertTrue(any(f["id"] == "F-FRESH-008" for f in unsafe_findings), "True positive missed: Ambiguous generic brand was not flagged!")
+
+    def test_16_csr_ssr_hydration_guard(self):
+        """CSR false positive: Server-rendered page with empty mount root passes; client-only blank mount root fails."""
+        # Safe Case: <div id="root"> mount root present, but body contains 260 words of pre-rendered HTML
+        safe_prose = " ".join(["enterprise"] * 260)
+        safe_bundle = {
+            "html": f"<html><body><div id='root'></div><article><p>{safe_prose}</p></article></body></html>",
+            "is_local": True
+        }
+        safe_findings = audit_crawl(safe_bundle)
+        self.assertFalse(any(f["id"] == "F-CRAWL-006" for f in safe_findings), "False positive: Pre-rendered SSR page flagged as CSR barrier!")
+
+        # Unsafe Case: <div id="root"> mount root with only 10 words of visible text (< 50 words threshold)
+        unsafe_bundle = {
+            "html": "<html><body><div id='root'></div><p>Loading application scripts please wait.</p></body></html>",
+            "is_local": True
+        }
+        unsafe_findings = audit_crawl(unsafe_bundle)
+        self.assertTrue(any(f["id"] == "F-CRAWL-006" for f in unsafe_findings), "True positive missed: Blank CSR root was not flagged!")
+
+    def test_17_docs_page_commercial_intent_guard(self):
+        """Conversion friction: Informational documentation page passes; commercial SaaS page lacking CTA fails."""
+        # Safe Case: Technical documentation page with no pricing, demo, or signup intent
+        docs_html = """
+        <html>
+        <body>
+          <h1>Developer Documentation</h1>
+          <p>Complete API reference detailing parameter schemas, error codes, and request retry strategies.</p>
+          <a href="/guide">Getting Started Guide</a>
+          <a href="/sdk">Python SDK</a>
+        </body>
+        </html>
+        """
+        docs_findings = evaluate_conversion(docs_html)
+        self.assertEqual(len(docs_findings), 0, "False positive: Non-commercial docs page received commercial conversion findings!")
+
+        # Unsafe Case: Commercial SaaS landing page with /pricing route and commercial copy, but 0 CTA buttons
+        saas_html = """
+        <html>
+        <body>
+          <h1>Enterprise AI Platform</h1>
+          <p>Modern SaaS platform delivering enterprise subscription solutions with guaranteed SLA.</p>
+          <a href="/pricing">View Pricing Plans</a>
+        </body>
+        </html>
+        """
+        saas_findings = evaluate_conversion(saas_html)
+        self.assertTrue(any(f["id"] == "F-ENGAGE-011" for f in saas_findings), "True positive missed: Commercial SaaS page lacking CTA was not flagged!")
+
+    def test_18_narrative_container_quotability_guard(self):
+        """Passage quotability: Narrative blog-post container passes via scope gate; technical spec with dangling pronouns fails."""
+        # Generate 4 passage chunks (each ~500 chars) starting with dangling pronouns
+        chunks_html = ""
+        for verb in ["delivers", "processes", "executes", "orchestrates"]:
+            chunks_html += f"<p>It {verb} " + "unbound enterprise factual operations " * 12 + ".</p>"
+
+        # Safe Case: Wrapped in editorial/narrative container class="blog-post"
+        safe_html = f"<article class='blog-post'>{chunks_html}</article>"
+        safe_res = evaluate_quotability(safe_html)
+        self.assertFalse(safe_res["flagged"], "False positive: Editorial blog-post container was not exempted by scope gate!")
+        self.assertIn("Narrative container exempted", safe_res["evidence"])
+
+        # Unsafe Case: Wrapped in non-exempt technical specification container class="spec"
+        unsafe_html = f"<article class='spec'>{chunks_html}</article>"
+        unsafe_res = evaluate_quotability(unsafe_html)
+        self.assertTrue(unsafe_res["flagged"], "True positive missed: Technical prose with dangling pronouns was not flagged!")
+        self.assertLess(unsafe_res["score"], 50)
+
+    def test_19_hero_zone_filler_exemption_guard(self):
+        """Fact-to-filler ratio: Fluff inside hero container is exempt; identical fluff in technical section fails."""
+        fluff_copy = "World-class seamless synergy empowering disruptive next-gen paradigm holistic solutions. " * 10
+
+        # Safe Case: Marketing buzzwords placed inside <section class="hero"> alongside substantive technical body copy
+        safe_html = f"""
+        <html>
+        <body>
+          <section class="hero"><p>{fluff_copy}</p></section>
+          <main><p>Our vector search engine reduces latency to 42ms with 99.9% uptime across 10,000 requests per second.</p></main>
+        </body>
+        </html>
+        """
+        safe_res = evaluate_filler(safe_html)
+        self.assertFalse(safe_res["flagged"], "False positive: Hero zone marketing copy was not exempted from fluff ratio!")
+
+        # Unsafe Case: Identical buzzword copy placed inside non-hero <section class="features"> without quantified metrics
+        unsafe_html = f"""
+        <html>
+        <body>
+          <section class="features"><p>{fluff_copy}</p></section>
+        </body>
+        </html>
+        """
+        unsafe_res = evaluate_filler(unsafe_html)
+        self.assertTrue(unsafe_res["flagged"], "True positive missed: Fluff-heavy technical section lacking metrics was not flagged!")
+
+    def test_20_path_scoped_robots_disallow_guard(self):
+        """Robots.txt evaluation: Permitted bot passes; path-scoped Disallow: /private/ is flagged as a partial block."""
+        # Safe Case: Specific record with empty Disallow (RFC 9309 allow-all)
+        safe_robots = "User-agent: ClaudeBot\nDisallow:\n"
+        safe_records = parse_robots_records(safe_robots)
+        blocked_safe, _ = is_bot_blocked("claudebot", safe_records)
+        self.assertFalse(blocked_safe, "False positive: Explicitly permitted bot with empty Disallow was flagged as blocked!")
+
+        # Unsafe Case: Specific record with path-scoped Disallow: /private/
+        unsafe_robots = "User-agent: ClaudeBot\nDisallow: /private/\n"
+        unsafe_records = parse_robots_records(unsafe_robots)
+        blocked_unsafe, reason_unsafe = is_bot_blocked("claudebot", unsafe_records)
+        self.assertTrue(blocked_unsafe, "True positive missed: Path-scoped disallow was not flagged as blocked!")
+        self.assertIn("/private/", reason_unsafe)
 
 if __name__ == "__main__":
     unittest.main()

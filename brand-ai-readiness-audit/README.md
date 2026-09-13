@@ -108,7 +108,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 
 ### Running the Test & Benchmark Suites
 ```bash
-# Automated regression unit tests (14 tests in ~0.03s)
+# Automated regression unit tests (20 tests in ~0.04s)
 python3 test_audit.py
 
 # Full 5-step benchmark scorecard (latency percentiles, ground truth accuracy)
@@ -129,7 +129,24 @@ To prevent alert fatigue and eliminate false positives on legitimate web pattern
 
 ---
 
-## 5. Known Scope Boundaries & Design Trade-offs
+## 5. Adversarial Validation: Discriminating Tests
+
+Every false-positive safeguard in this marketplace is backed by a bidirectional unit test in `test_audit.py` that verifies the check is discriminating—passing the legitimate edge case while flagging the truly defective one:
+
+| Scenario | Naive Implementation (False Positive) | This Marketplace (Discriminating Guard) | Verified Test |
+| :--- | :--- | :--- | :--- |
+| **Common-Word Brand Identity** | Flags generic word brands (e.g. "Linear", "Atlas") as hallucination risks regardless of disambiguation. | Checks for Schema.org `legalName`, `disambiguatingDescription`, or authoritative `sameAs` registry links before flagging. | `test_15_common_word_brand_disambiguation_guard` |
+| **Modern SSR Hydration Fallback** | Flags any page containing `<div id="root">` or `<div id="__next">` as an unindexable CSR barrier. | Verifies static body word count (>= 50 words threshold); pre-rendered SSR pages with hydration hooks pass cleanly. | `test_16_csr_ssr_hydration_guard` |
+| **Documentation & Blog Pages** | Dings technical docs or engineering blogs for missing "Book a Demo" CTA buttons or pricing routes. | Gates all conversion and friction checks behind `has_commercial_intent()`; non-commercial pages receive 0 conversion warnings. | `test_17_docs_page_commercial_intent_guard` |
+| **Editorial & Narrative Copy** | Flags founder letters, stories, and personal blogs for low passage quotability due to narrative pronouns. | Evaluator explicitly inspects container tokens (`founder-letter`, `personal-story`, `blog-post`) and exempts narrative copy. | `test_18_narrative_container_quotability_guard` |
+| **Hero Zone Marketing Branding** | Flags punchy hero headlines for high corporate fluff or lack of quantified metrics. | Strips hero, banner, and jumbotron containers before evaluating Lexical Density Ratio (LDR); hero branding is exempt. | `test_19_hero_zone_filler_exemption_guard` |
+| **RFC 9309 Path-Scoped Disallows** | Either assumes any `Disallow:` blocks the bot, or only checks for root `Disallow: /`. | Respects RFC 9309 semantics: empty `Disallow:` is permitted, while path-scoped rules (`Disallow: /private/`) are flagged as partial blocks. | `test_20_path_scoped_robots_disallow_guard` |
+
+These tests demonstrate that the marketplace discriminates between genuine architectural barriers and intentional, standard web design patterns.
+
+---
+
+## 6. Known Scope Boundaries & Design Trade-offs
 
 In strict adherence to the hackathon's < 5-minute runtime and zero-external-dependency constraints:
 - **Static DOM vs. Heavy Headless Browser**: Pure Client-Side Rendered (CSR) SPAs are flagged statically by detecting empty mount roots (`#root`, `#app`) and JS script bundles without running a 300MB Chromium/Playwright instance.
@@ -139,7 +156,7 @@ In strict adherence to the hackathon's < 5-minute runtime and zero-external-depe
 
 ---
 
-## 6. Output Schema Parity (Handout Page 2)
+## 7. Output Schema Parity (Handout Page 2)
 
 ```json
 {
