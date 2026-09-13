@@ -7,11 +7,32 @@ Strictly adheres to Handout Page 2 schema floor.
 """
 
 import os
+import sys
 import json
 import re
 from urllib.parse import urlparse
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ENGAGE_SCRIPTS = os.path.abspath(os.path.join(CURRENT_DIR, "../../engagement-audit/scripts"))
+if ENGAGE_SCRIPTS not in sys.path:
+    sys.path.insert(0, ENGAGE_SCRIPTS)
+
+try:
+    from conversion_evaluator import has_commercial_intent
+except ImportError:
+    def has_commercial_intent(html: str) -> bool:
+        schema_matches = re.findall(r'["\']@type["\']\s*:\s*["\']([^"\']+)["\']', html, re.I)
+        for s in schema_matches:
+            if s.lower() in {"product", "offer", "service", "softwareapplication", "financialproduct", "store", "localbusiness"}:
+                return True
+        dom_hrefs = re.findall(r'<a\s+[^>]*href=["\']([^"\']+)["\']', html, re.I)
+        for href in dom_hrefs:
+            if any(cr in href.lower() for cr in ["/pricing", "/product", "/plans", "/demo", "/signup", "/buy", "/checkout", "/solutions", "/shop", "/cart"]):
+                return True
+        lower_text = html.lower()
+        commercial_kw = [r"\bpricing\b", r"\bplans\b", r"\benterprise\b", r"\bsaas\b", r"\bsolutions\b", r"\bfree trial\b", r"\bget started\b", r"\bsubscription\b", r"\bdemo\b", r"\badd to cart\b", r"\bcheckout\b", r"\bshop\b", r"\bcart\b"]
+        return sum(1 for kw in commercial_kw if re.search(kw, lower_text)) >= 2
+
 TEMPLATES_PATH = os.path.abspath(os.path.join(CURRENT_DIR, "../../freshness-corroboration/references/jsonld_templates.json"))
 JSONLD_TEMPLATES = {}
 if os.path.exists(TEMPLATES_PATH):
@@ -25,6 +46,29 @@ def clean_tag(text: str) -> str:
     """Clean text from tags and excess whitespace."""
     return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', '', text)).strip()
 
+def format_doc_title(d: str) -> str:
+    """Format a clean markdown link title for doc paths or absolute URLs."""
+    clean = d.split("?")[0].split("#")[0].rstrip("/")
+    if clean.lower().endswith(".html") or clean.lower().endswith(".htm"):
+        clean = clean.rsplit(".", 1)[0]
+    if clean.startswith("http://") or clean.startswith("https://"):
+        p = urlparse(clean)
+        path = p.path.strip("/")
+        if path:
+            seg = path.split("/")
+            last = seg[-1].replace("-", " ").replace("_", " ").title()
+            return last if len(last) > 1 and not last.isdigit() else (seg[-2].title() if len(seg) > 1 else "Documentation")
+        elif p.netloc:
+            parts = p.netloc.split(".")
+            meaningful = [part.capitalize() for part in parts if part.lower() not in ("www", "org", "com", "io", "net")]
+            return " ".join(meaningful) or "Documentation"
+    path = clean.strip("/")
+    segments = [s for s in path.split("/") if s]
+    if segments:
+        last = segments[-1].replace("-", " ").replace("_", " ").title()
+        return last if len(last) > 1 and not last.isdigit() else (segments[-2].title() if len(segments) > 1 else "Documentation")
+    return "Documentation"
+
 def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
     """
     Generate non-obvious proactive recommendations strictly conditioned on observed site evidence:
@@ -36,24 +80,61 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
     proactive = []
     html = bundle.get("html", "")
     llms_txt = bundle.get("llms_txt", "")
-    url = bundle.get("url", "https://example.com")
+    url = bundle.get("url", "")
     parsed = urlparse(url)
-    origin = f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else "https://example.com"
-    brand_host = parsed.netloc or parsed.path or "brand.com"
+    canonical = bundle.get("canonical_url", "").strip()
+
+    if canonical.startswith("http"):
+        canon_parsed = urlparse(canonical)
+        origin = f"{canon_parsed.scheme}://{canon_parsed.netloc}"
+        brand_host = canon_parsed.netloc
+    elif parsed.netloc:
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        brand_host = parsed.netloc
+    else:
+        origin = ""
+        brand_host = "brand.com"
 
     # If the site is blocked at network level, suppress all proactive suggestions
     if "F-CRAWL-001" in existing_finding_ids:
         return []
 
+    # Extract clean brand/page title (preferring og:site_name, application-name, then cleaned <title>)
+    og_name = re.search(r'<meta\s+property=["\']og:site_name["\']\s+content=["\']([^"\']+)["\']', html, re.I)
+    if not og_name:
+        og_name = re.search(r'<meta\s+content=["\']([^"\']+)["\']\s+property=["\']og:site_name["\']', html, re.I)
+    app_name = re.search(r'<meta\s+name=["\']application-name["\']\s+content=["\']([^"\']+)["\']', html, re.I)
+    if not app_name:
+        app_name = re.search(r'<meta\s+content=["\']([^"\']+)["\']\s+name=["\']application-name["\']', html, re.I)
+
     title_match = re.search(r'<title\b[^>]*>(.*?)<\/title>', html, re.I)
-    page_title = clean_tag(title_match.group(1)) if title_match else brand_host
+    raw_title = clean_tag(title_match.group(1)) if title_match else brand_host
+
+    if og_name and og_name.group(1).strip():
+        brand_name = clean_tag(og_name.group(1))
+    elif app_name and app_name.group(1).strip():
+        brand_name = clean_tag(app_name.group(1))
+    else:
+        # Strip common boilerplates like "Welcome to ", " - Home", " | Official Site"
+        clean = re.sub(r'^(?:Welcome\s+to\s+|Home\s+[-|]\s+)', '', raw_title, flags=re.I)
+        clean = re.sub(r'\s+[-|].*$', '', clean)
+        brand_name = clean.strip() or raw_title
+
+    page_title = brand_name
 
     meta_match = re.search(r'<meta\s+name=["\']description["\']\s+content=["\']([^"\']+)["\']', html, re.I)
     meta_desc = clean_tag(meta_match.group(1)) if meta_match else f"Official documentation and resources for {page_title}."
 
-    # Scan DOM links for documentation / guide / API routes
+    # Scan DOM links for documentation / guide / API routes and deduplicate preserving order
     dom_hrefs = re.findall(r'<a\s+[^>]*href=["\']([^"\']+)["\']', html, re.I)
-    doc_links = [h for h in dom_hrefs if any(k in h.lower() for k in ["/docs", "/doc", "/api", "/guide", "/developers", "/help", "/reference"])]
+    raw_doc_links = [h for h in dom_hrefs if any(k in h.lower() for k in ["/docs", "/doc", "/api", "/guide", "/developers", "/help", "/reference"])]
+    seen_links = set()
+    doc_links = []
+    for d in raw_doc_links:
+        clean_d = d.strip()
+        if clean_d and clean_d not in seen_links:
+            seen_links.add(clean_d)
+            doc_links.append(clean_d)
 
     # 1. Conditioned Proactive Trigger: Markdown-First /llms.txt manifest
     # Condition: Discovered doc/API routes exist, BUT site has no /llms.txt file
@@ -61,18 +142,19 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
         # Generate turnkey llms.txt snippet
         doc_entries = []
         for d in doc_links[:5]:
-            full_doc_url = d if d.startswith("http") else f"{origin.rstrip('/')}/{d.lstrip('/')}"
-            clean_title = d.strip("/").replace("/", " - ").replace("-", " ").title() or "Documentation"
+            full_doc_url = d if d.startswith("http") else (f"{origin.rstrip('/')}/{d.lstrip('/')}" if origin else f"/{d.lstrip('/')}")
+            clean_title = format_doc_title(d)
             doc_entries.append(f"- [{clean_title}]({full_doc_url}): Core developer and API documentation.")
         
         docs_block = "\n".join(doc_entries)
+        full_index_url = f"{origin}/llms-full.txt" if origin else "/llms-full.txt"
         llms_artifact = (
             f"# {page_title}\n\n"
             f"> {meta_desc}\n\n"
             f"## Documentation Endpoints\n\n"
             f"{docs_block}\n\n"
             f"## Optional\n\n"
-            f"- [{page_title} Full Index]({origin}/llms-full.txt): Complete unpaginated markdown documentation context.\n"
+            f"- [{page_title} Full Index]({full_index_url}): Complete unpaginated markdown documentation context.\n"
         )
         proactive.append({
             "id": "F-PROACT-001",
@@ -167,18 +249,19 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
         })
 
     # 3. Conditioned Proactive Trigger: Knowledge Graph sameAs Bridge
-    # Condition: Commercial entity signals observed (pricing/product/about links), BUT missing sameAs links
+    # Condition: Commercial entity signals observed, BUT missing sameAs links
     has_sameas = "sameas" in html.lower()
-    is_commercial = any(h for h in dom_hrefs if any(k in h.lower() for k in ["/pricing", "/product", "/plans", "/about", "/company"]))
+    is_commercial = has_commercial_intent(html)
 
     if is_commercial and not has_sameas:
+        org_url = origin if origin else (canonical if canonical else "https://brand.example.com")
         org_artifact = (
             f'<script type="application/ld+json">\n'
             f'{{\n'
             f'  "@context": "https://schema.org",\n'
             f'  "@type": "Organization",\n'
             f'  "name": "{page_title}",\n'
-            f'  "url": "{origin}",\n'
+            f'  "url": "{org_url}",\n'
             f'  "description": "{meta_desc}",\n'
             f'  "sameAs": [\n'
             f'    "https://www.linkedin.com/company/<YOUR_LINKEDIN_SLUG>",\n'

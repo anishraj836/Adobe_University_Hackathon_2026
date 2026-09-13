@@ -77,28 +77,42 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
         })
     elif h1_matches:
         desc_text = meta_desc_match.group(1).strip()
-        h1_clean = re.sub(r'<[^>]+>', '', h1_matches[0]).strip().lower()
-        h1_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', h1_clean) if w not in stopwords}
         desc_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', desc_text.lower()) if w not in stopwords}
-        if h1_tokens and desc_tokens:
+        desc_stems = {w[:4] for w in desc_tokens}
+
+        # Context bridge: check if document <title> connects H1 and meta description
+        title_match = re.search(r'<title\b[^>]*>(.*?)</title>', html, re.I)
+        title_text = re.sub(r'<[^>]+>', '', title_match.group(1)).lower() if title_match else ""
+        title_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', title_text) if w not in stopwords}
+
+        any_aligned = False
+        sample_h1 = ""
+        for h1_raw in h1_matches:
+            h1_clean = re.sub(r'<[^>]+>', '', h1_raw).strip().lower()
+            if not sample_h1:
+                sample_h1 = h1_clean
+            h1_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', h1_clean) if w not in stopwords}
+            if not h1_tokens:
+                continue
             common = h1_tokens.intersection(desc_tokens)
-            # Morphological stem matching (first 4 chars) for synonyms/derivatives (deploy/deployment, automate/automation)
             h1_stems = {w[:4] for w in h1_tokens}
-            desc_stems = {w[:4] for w in desc_tokens}
             stem_common = h1_stems.intersection(desc_stems)
-
-            # Context bridge: check if document <title> connects H1 and meta description
-            title_match = re.search(r'<title\b[^>]*>(.*?)</title>', html, re.I)
-            title_text = re.sub(r'<[^>]+>', '', title_match.group(1)).lower() if title_match else ""
-            title_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', title_text) if w not in stopwords}
             bridged = bool(title_tokens and (h1_tokens.intersection(title_tokens) and desc_tokens.intersection(title_tokens)))
+            if common or stem_common or bridged:
+                any_aligned = True
+                break
 
-            if not common and not stem_common and not bridged and len(h1_tokens) >= 2 and len(desc_tokens) >= 5:
+        # Only evaluate cognitive mismatch if no H1 aligns with description.
+        # If multiple competing H1s exist, hierarchy_evaluator already flags F-ENGAGE-008;
+        # evaluating an arbitrary first H1 creates a duplicate penalty.
+        if not any_aligned and len(h1_matches) == 1 and len(desc_tokens) >= 5:
+            h1_tokens_sample = {w for w in re.findall(r'\b[a-z]{4,}\b', sample_h1) if w not in stopwords}
+            if len(h1_tokens_sample) >= 2:
                 findings.append({
                     "id": "F-ENGAGE-009",
                     "title": "Cognitive mismatch between primary <h1> and meta description",
                     "severity": "medium",
-                    "evidence": f"0 shared topical keywords between headline ('{h1_clean[:50]}') and meta description ('{desc_text[:60]}...'). Arriving AI referrals experience immediate cognitive disconnect.",
+                    "evidence": f"0 shared topical keywords between headline ('{sample_h1[:50]}') and meta description ('{desc_text[:60]}...'). Arriving AI referrals experience immediate cognitive disconnect.",
                     "suggested_action": {
                         "summary": "Align primary <h1> messaging with the meta description so visitors referred by conversational AI recognize the proposition immediately.",
                         "priority": "medium"

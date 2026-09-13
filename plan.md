@@ -152,4 +152,4 @@ brand-ai-readiness-audit/
 - **RFC 9309 Robots.txt Compliance**: Strictly respects disallow rules.
 - **Runtime Budget**: Low-overhead bounded execution: sub-second offline processing (~0.02s typical), bounded stream fetching live (well under 5-minute ceiling).
 - **Package Size**: < 2 MB including all fixtures and references (Ceiling: < 50 MB; no binary model weights).
-- **Zero External Dependencies**: Pure Python standard library reliability with automatic acceleration if `requests`/`bs4` present.
+- **Zero External Dependencies**: Pure Python standard library reliability with optional acceleration if `requests` is present.

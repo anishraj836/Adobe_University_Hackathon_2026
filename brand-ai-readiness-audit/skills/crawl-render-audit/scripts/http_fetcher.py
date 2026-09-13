@@ -83,6 +83,7 @@ def fetch_local(target: str) -> dict:
             "llms_txt": llms_content,
             "subpages": subpages,
             "headers": {"content-type": "text/html; charset=utf-8"},
+            "canonical_url": extract_canonical_url(html_content),
             "is_local": True,
             "error": None
         }
@@ -101,6 +102,7 @@ def fetch_local(target: str) -> dict:
             "html": html_content,
             "robots_txt": robots_content,
             "sitemap_xml": "",
+            "canonical_url": extract_canonical_url(html_content),
             "subpages": [],
             "headers": {"content-type": "text/html; charset=utf-8"},
             "is_local": True,
@@ -179,6 +181,13 @@ def fetch_url(url: str, user_agent: str = BROWSER_UA, timeout: int = 6) -> dict:
                 "error": str(inner_e or e)
             }
 
+def extract_canonical_url(html: str) -> str:
+    """Extract canonical URL link element if declared in markup."""
+    match = re.search(r'<link\s+[^>]*rel=["\']canonical["\'][^>]*href=["\']([^"\']+)["\']', html, re.I)
+    if not match:
+        match = re.search(r'<link\s+[^>]*href=["\']([^"\']+)["\'][^>]*rel=["\']canonical["\']', html, re.I)
+    return match.group(1).strip() if match else ""
+
 def _rfc9309_pattern_matches(pattern: str, path: str) -> bool:
     """Check if path matches RFC 9309 robots.txt pattern (supporting * wildcards and $ end-anchors)."""
     if not pattern:
@@ -192,28 +201,102 @@ def _rfc9309_pattern_matches(pattern: str, path: str) -> bool:
     except Exception:
         return path.startswith(pattern)
 
+def parse_robots_records(robots_text: str) -> dict:
+    """
+    RFC 9309 compliant parser:
+    Groups user-agent lines into distinct records, separated by blank lines
+    or transitions from directive lines back to user-agent lines.
+    Preserves rule order and supports multi-agent grouped declarations.
+    """
+    records = {}
+    current_agents = []
+    in_directives = False
+    sitemaps = []
+
+    lines = robots_text.splitlines()
+    for raw_line in lines:
+        line = raw_line.split('#')[0].strip()
+        if not line:
+            if in_directives:
+                current_agents = []
+                in_directives = False
+            continue
+
+        lower = line.lower()
+        if lower.startswith("user-agent:"):
+            agent = line.split(":", 1)[1].strip().lower()
+            if in_directives:
+                current_agents = []
+                in_directives = False
+            if agent:
+                current_agents.append(agent)
+                if agent not in records:
+                    records[agent] = {"allow": [], "disallow": [], "rules": []}
+        elif lower.startswith("disallow:"):
+            in_directives = True
+            path = line.split(":", 1)[1].strip()
+            for agent in current_agents:
+                records[agent]["disallow"].append(path)
+                records[agent]["rules"].append(("disallow", path, len(path)))
+        elif lower.startswith("allow:"):
+            in_directives = True
+            path = line.split(":", 1)[1].strip()
+            for agent in current_agents:
+                records[agent]["allow"].append(path)
+                records[agent]["rules"].append(("allow", path, len(path)))
+        elif lower.startswith("sitemap:"):
+            sitemaps.append(line.split(":", 1)[1].strip())
+
+    records["__sitemaps__"] = sitemaps
+    return records
+
 def is_path_allowed_by_robots(path: str, robots_text: str, user_agent: str = "*") -> bool:
-    """RFC 9309 check: verify if a path is allowed by robots.txt before crawling (supporting * and $)."""
+    """
+    RFC 9309 compliant path check:
+    1. Finds the most specific user-agent group matching user_agent (fallback to '*').
+    2. Collects all matching Allow and Disallow rules in that group.
+    3. Longest-match precedence (RFC 9309 §2.2.2): The rule with the longest path pattern wins.
+    4. Equal length tie-breaker: Allow overrides Disallow.
+    5. If no rules match: Default ALLOW.
+    """
     if not robots_text:
         return True
-    lines = robots_text.splitlines()
-    applies = False
-    for line in lines:
-        line = line.split('#')[0].strip()
-        if not line:
+
+    records = parse_robots_records(robots_text)
+    ua_clean = user_agent.lower().split("/")[0].strip()
+
+    # 1. Select the most specific record group matching user_agent
+    target_record = None
+    if ua_clean in records:
+        target_record = records[ua_clean]
+    else:
+        for k in records:
+            if k != "__sitemaps__" and (k == ua_clean or k in ua_clean or ua_clean in k):
+                target_record = records[k]
+                break
+
+    if target_record is None and "*" in records:
+        target_record = records["*"]
+
+    if not target_record:
+        return True
+
+    # 2. Collect matching rules for this path
+    matching = []
+    for r_type, pat, r_len in target_record.get("rules", []):
+        if not pat:
+            if r_type == "disallow":
+                matching.append((0, "allow", ""))
             continue
-        if line.lower().startswith("user-agent:"):
-            agent = line.split(":", 1)[1].strip().lower()
-            applies = (agent == user_agent.lower() or agent == "*")
-        elif applies and line.lower().startswith("disallow:"):
-            dis_path = line.split(":", 1)[1].strip()
-            if dis_path and _rfc9309_pattern_matches(dis_path, path):
-                return False
-        elif applies and line.lower().startswith("allow:"):
-            allow_path = line.split(":", 1)[1].strip()
-            if allow_path and _rfc9309_pattern_matches(allow_path, path):
-                return True
-    return True
+        if _rfc9309_pattern_matches(pat, path):
+            matching.append((r_len, r_type, pat))
+
+    if not matching:
+        return True
+
+    # 3. Sort by length descending; tie-breaker: 'allow' beats 'disallow'
+    matching.sort(key=lambda r: (r[0], 1 if r[1] == "allow" else 0), reverse=True)
+    return matching[0][1] == "allow"
 
 def discover_subpages(html: str, origin: str, robots_txt: str, max_subpages: int = 3) -> list:
     """Discover, prioritize, and fetch high-leverage internal subpages adhering to robots.txt."""
@@ -332,6 +415,7 @@ def fetch_target_bundle(target: str) -> dict:
         "status": home_resp.get("status", 0),
         "url": home_resp.get("url", base_url),
         "origin": origin,
+        "canonical_url": extract_canonical_url(home_resp.get("html", "")),
         "html": home_resp.get("html", ""),
         "headers": home_resp.get("headers", {}),
         "bot_probe_status": bot_resp.get("status", 0),

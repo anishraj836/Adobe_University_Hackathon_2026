@@ -15,7 +15,7 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-from http_fetcher import fetch_target_bundle
+from http_fetcher import fetch_target_bundle, parse_robots_records
 
 # 2026 AI Crawler Taxonomy:
 # Tier 1: Real-time Retrieval & Citation Crawlers (Live AI Search / Answers)
@@ -80,38 +80,6 @@ def count_words(text: str) -> int:
     space_words = len(ascii_clean.split())
     return space_words + cjk_thai_chars
 
-def parse_robots_records(robots_text: str) -> dict:
-    """
-    RFC 9309 parser: extracts records for each User-agent, recording both allow and disallow paths.
-    Returns {agent: {"allow": [...], "disallow": [...]}, "__sitemaps__": [...]}
-    """
-    records = {}
-    current_agents = []
-    lines = robots_text.splitlines()
-
-    for line in lines:
-        line = line.split('#')[0].strip()
-        if not line:
-            continue
-        if line.lower().startswith("user-agent:"):
-            agent = line.split(":", 1)[1].strip().lower()
-            current_agents.append(agent)
-            records.setdefault(agent, {"allow": [], "disallow": []})
-        elif line.lower().startswith("disallow:"):
-            path = line.split(":", 1)[1].strip()
-            for agent in current_agents:
-                records[agent]["disallow"].append(path)
-        elif line.lower().startswith("allow:"):
-            path = line.split(":", 1)[1].strip()
-            for agent in current_agents:
-                records[agent]["allow"].append(path)
-        elif line.lower().startswith("sitemap:"):
-            records.setdefault("__sitemaps__", []).append(line.split(":", 1)[1].strip())
-        else:
-            # Unrecognized directives or separators reset current agent block if blank
-            pass
-
-    return records
 
 def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
     """

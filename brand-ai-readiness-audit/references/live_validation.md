@@ -39,16 +39,15 @@ To prove **Generalization** beyond synthetic offline fixtures (as required by th
 
 ## Target 3: `https://python.org` (Large Foundation & Developer Portal)
 - **Nature**: High-traffic software foundation portal with extensive navigation and subpage trees.
-- **Observed Status**: HTTP 200 (Crawled homepage and discovered 26 developer documentation routes; RFC 9309 path-scoped disallows `/webstats/` and `Disallow: /~guido/orlijn/` correctly verified as non-blocking for public site indexability).
+- **Observed Status**: HTTP 200 (Crawled homepage and discovered 15 developer documentation routes; RFC 9309 path-scoped disallows `/webstats/` and `Disallow: /~guido/orlijn/` correctly verified as non-blocking for public site indexability).
 - **Execution Findings**:
   1. `[MEDIUM] F-001: No XML Sitemap found or referenced`.
   2. `[MEDIUM] F-002: Multiple competing <h1> headings cause orientation ambiguity` (Identified 5 distinct `<h1>` tags across header sections).
-  3. `[MEDIUM] F-003: Cognitive mismatch between primary <h1> and meta description` (0 shared topical keywords between headline "intuitive interpretation" and meta description "The official home of the Python Programming Language...").
-  4. `[MEDIUM] F-004: Subheadings lack persistent citation anchor IDs` (0/9 subheadings possess HTML `id` attributes).
-  5. `[MEDIUM] F-005: Missing primary Call to Action (CTA) for AI-referred visitor conversion`.
-  6. `[MEDIUM] F-006: [Proactive Opportunity] Deploy /llms.txt manifest for discovered documentation assets` (Automatically discovered 26 doc links including `https://docs.python.org` and generated a drop-in `/llms.txt` manifest).
-  7. `[MEDIUM] F-007: [Proactive Opportunity] Structure discovered Q&A content into FAQPage JSON-LD` (Generated ready-to-use JSON-LD schema snippet).
-  8. `[MEDIUM] F-008: [Proactive Opportunity] Bridge commercial brand entity to Knowledge Graph registries` (Synthesized Schema.org Organization template).
+  3. `[MEDIUM] F-003: Subheadings lack persistent citation anchor IDs` (0/9 subheadings possess HTML `id` attributes).
+  4. `[MEDIUM] F-004: Missing primary Call to Action (CTA) for AI-referred visitor conversion`.
+  5. `[MEDIUM] F-005: [Proactive Opportunity] Deploy /llms.txt manifest for discovered documentation assets` (Automatically discovered 15 doc links including `https://docs.python.org`, `/doc/`, and generated a clean drop-in `/llms.txt` manifest with normalized titles).
+  6. `[MEDIUM] F-006: [Proactive Opportunity] Structure discovered Q&A content into FAQPage JSON-LD` (Generated ready-to-use JSON-LD schema snippet).
+  7. `[MEDIUM] F-007: [Proactive Opportunity] Bridge commercial brand entity to Knowledge Graph registries` (Synthesized Schema.org Organization template using clean brand name "Python.org").
 - **Generalization Assessment**: Demonstrates precise RFC 9309 path-scoped disallow handling without false-positive crawler blocks, dynamic multi-route discovery, heading hierarchy conflict detection, and real-time turnkey proactive action synthesis on a major production website.
 
 ---

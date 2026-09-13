@@ -22,13 +22,15 @@ import shutil
 
 from run_audit import run_audit, build_markdown_report
 from schema_validator import validate_report_schema
-from proactive_engine import generate_proactive_actions
+from proactive_engine import generate_proactive_actions, format_doc_title
 from freshness_evaluator import evaluate_freshness
 from schema_evaluator import evaluate_schema
 from entity_resolver import evaluate_entity
 from audit_freshness import audit_freshness
 from audit_crawl import audit_crawl, parse_robots_records, is_bot_blocked, count_words
+from http_fetcher import is_path_allowed_by_robots, extract_canonical_url
 from conversion_evaluator import evaluate_conversion, has_commercial_intent, check_primary_cta
+from orientation_evaluator import evaluate_orientation
 from quotability_evaluator import evaluate_quotability
 from filler_evaluator import evaluate_filler
 from nontext_inspector import inspect_nontext
@@ -1099,6 +1101,153 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
             self.assertFalse(has_crawl_thin, "Must deduplicate redundant raw static HTML content volume finding")
         finally:
             shutil.rmtree(temp_dir)
+
+    def test_39_rfc9309_multi_group_directive_isolation_guard(self):
+        """RFC 9309 compliance guard: Directives from one User-agent group MUST NOT leak into another group."""
+        robots_txt = """User-agent: GPTBot
+Disallow: /admin/
+
+User-agent: SomeOtherBot
+Disallow: /
+"""
+        records = parse_robots_records(robots_txt)
+        # GPTBot has only path-scoped /admin/ disallow: site remains indexable
+        blocked_gpt, reason_gpt = is_bot_blocked("gptbot", records)
+        self.assertFalse(blocked_gpt, f"False positive: GPTBot was falsely blocked by leaked directive! Reason: {reason_gpt}")
+        self.assertIn("/admin/", reason_gpt)
+
+        # SomeOtherBot is explicitly blocked at root
+        blocked_other, reason_other = is_bot_blocked("someotherbot", records)
+        self.assertTrue(blocked_other, f"True positive missed: SomeOtherBot must be blocked at root! Reason: {reason_other}")
+        self.assertIn("Disallow: /", reason_other)
+
+    def test_40_rfc9309_grouped_multi_user_agents_guard(self):
+        """RFC 9309 compliance guard: Multi-agent declarations sharing a directive block apply to all listed agents."""
+        robots_txt = """User-agent: ClaudeBot
+User-agent: GPTBot
+Disallow: /
+
+User-agent: Googlebot
+Allow: /
+"""
+        records = parse_robots_records(robots_txt)
+        blocked_claude, _ = is_bot_blocked("claudebot", records)
+        blocked_gpt, _ = is_bot_blocked("gptbot", records)
+        blocked_google, _ = is_bot_blocked("googlebot", records)
+
+        self.assertTrue(blocked_claude, "ClaudeBot in grouped User-agent block must be blocked!")
+        self.assertTrue(blocked_gpt, "GPTBot in grouped User-agent block must be blocked!")
+        self.assertFalse(blocked_google, "Googlebot in subsequent isolated block must NOT be blocked!")
+
+    def test_41_rfc9309_longest_match_and_tiebreak_guard(self):
+        """RFC 9309 §2.2.2 path precedence guard: Longest-match rule and equal-length Allow tiebreaker."""
+        # Case A: Longest-match rule (Allow /blog/ is longer than Disallow /)
+        robots_txt = """User-agent: GPTBot
+Disallow: /
+Allow: /blog/
+"""
+        self.assertFalse(is_path_allowed_by_robots("/", robots_txt, "GPTBot"), "Root / must be disallowed by Disallow: /")
+        self.assertTrue(is_path_allowed_by_robots("/blog/post-1", robots_txt, "GPTBot"), "/blog/post-1 must be allowed by longer Allow: /blog/")
+
+        # Case B: Equal-length tie-breaker (Allow overrides Disallow)
+        robots_tie = """User-agent: GPTBot
+Disallow: /
+Allow: /
+"""
+        self.assertTrue(is_path_allowed_by_robots("/", robots_tie, "GPTBot"), "Equal length tie-breaker: Allow: / MUST override Disallow: /")
+
+    def test_42_proactive_engine_commercial_intent_unification_guard(self):
+        """Commercial intent unification guard: Non-profits with /about links must NOT trigger commercial sameAs recommendations, while commercial sites do."""
+        # Case A: Non-profit with /about and documentation routes (like Python Software Foundation)
+        nonprofit_bundle = {
+            "html": """
+            <html>
+            <head><title>Python Software Foundation</title><meta name="description" content="Official PSF home"></head>
+            <body>
+              <a href="/about/">About PSF</a>
+              <a href="https://docs.python.org">Python Docs</a>
+              <a href="/doc/">Documentation</a>
+              <a href="/doc/">Documentation</a>
+            </body>
+            </html>
+            """,
+            "url": "https://www.python.org",
+            "canonical_url": "https://www.python.org"
+        }
+        # Verify commercial intent returns False
+        self.assertFalse(has_commercial_intent(nonprofit_bundle["html"]), "PSF with /about must not be classified as commercial intent!")
+        actions_np = generate_proactive_actions(nonprofit_bundle, set())
+        np_ids = [a["id"] for a in actions_np]
+        self.assertNotIn("F-PROACT-003", np_ids, "F-PROACT-003 (sameAs bridge) must NOT trigger for non-profit /about page!")
+
+        # Verify llms.txt generated cleanly with deduplicated doc links and normalized title
+        llms_action = next((a for a in actions_np if a["id"] == "F-PROACT-001"), None)
+        self.assertIsNotNone(llms_action, "Must offer proactive /llms.txt manifest for discovered doc routes")
+        summary_text = llms_action["suggested_action"]["summary"]
+        self.assertIn("Docs Python", summary_text)
+        self.assertNotIn("Https: Docs.Python.Org", summary_text)
+        # Verify format_doc_title normalizes URLs and routes
+        self.assertEqual(format_doc_title("https://docs.python.org"), "Docs Python")
+        self.assertEqual(format_doc_title("https://docs.python.org/3/license.html"), "License")
+        self.assertEqual(format_doc_title("/docs/api/"), "Api")
+
+        # Case B: Commercial site with pricing
+        commercial_bundle = {
+            "html": """
+            <html>
+            <head><title>Enterprise Flow</title><meta name="description" content="SaaS orchestration"></head>
+            <body>
+              <a href="/pricing">Pricing Plans</a>
+              <a href="/docs">Developer API</a>
+            </body>
+            </html>
+            """,
+            "url": "https://enterpriseflow.io",
+            "canonical_url": "https://enterpriseflow.io"
+        }
+        self.assertTrue(has_commercial_intent(commercial_bundle["html"]), "Site with /pricing must be classified as commercial intent!")
+        actions_comm = generate_proactive_actions(commercial_bundle, set())
+        comm_ids = [a["id"] for a in actions_comm]
+        self.assertIn("F-PROACT-003", comm_ids, "F-PROACT-003 must fire on commercial site without sameAs markup")
+
+    def test_43_orientation_competing_h1_cognitive_mismatch_suppression_guard(self):
+        """Orientation guard: Pages with multiple competing H1s report F-ENGAGE-008, suppressing duplicate F-ENGAGE-009 penalty on arbitrary DOM picks."""
+        multi_h1_html = """
+        <html>
+        <head>
+          <title>Python.org</title>
+          <meta name="description" content="The official home of the Python Programming Language with documentation and downloads.">
+        </head>
+        <body>
+          <h1>Intuitive Interpretation</h1>
+          <h1>The Python Programming Language</h1>
+          <h1>Download Python</h1>
+          <p>Python is a powerful, dynamic multi-paradigm programming language used across scientific research and backend systems.</p>
+        </body>
+        </html>
+        """
+        findings, _ = evaluate_orientation(multi_h1_html)
+        finding_ids = [f["id"] for f in findings]
+        self.assertNotIn("F-ENGAGE-009", finding_ids, "F-ENGAGE-009 (cognitive mismatch) must be suppressed when multiple competing H1s exist or an H1 aligns!")
+
+    def test_44_canonical_url_extraction_and_origin_resolution_guard(self):
+        """Metadata parity guard: <link rel='canonical'> is correctly extracted and used by proactive engine for origin resolution."""
+        # Case A: Verify extract_canonical_url parses standard canonical tags
+        html_canon = '<html><head><link rel="canonical" href="https://acme.org/store"></head><body><h1>Store</h1></body></html>'
+        extracted = extract_canonical_url(html_canon)
+        self.assertEqual(extracted, "https://acme.org/store")
+
+        # Case B: Local fixture bundle with canonical URL resolves origin to canonical origin, NOT hardcoded example.com
+        local_bundle = {
+            "html": '<html><head><link rel="canonical" href="https://acme.org/store"></head><body><h1>Acme</h1><a href="/docs">Docs</a></body></html>',
+            "url": "file:///tmp/fixture/index.html",
+            "canonical_url": "https://acme.org/store"
+        }
+        actions = generate_proactive_actions(local_bundle, set())
+        llms_act = next((a for a in actions if a["id"] == "F-PROACT-001"), None)
+        self.assertIsNotNone(llms_act)
+        self.assertIn("https://acme.org/llms-full.txt", llms_act["suggested_action"]["summary"])
+        self.assertNotIn("https://example.com/llms-full.txt", llms_act["suggested_action"]["summary"])
 
 if __name__ == "__main__":
     unittest.main()

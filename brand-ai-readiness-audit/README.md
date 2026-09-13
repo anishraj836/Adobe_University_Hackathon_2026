@@ -47,7 +47,7 @@ Unlike generic SEO checkers that merely look at legacy `<title>` tags or word co
 - **Mechanism**: Rather than emitting passive, generic advice (*"Consider creating an llms.txt"*), the synthesizer delivers drop-in, turnkey code fixes nested cleanly inside `suggested_action.summary` via Markdown code blocks.
 - **Safeguards**:
   - *Strict Schema Parity*: Suggested actions strictly adhere to Handout Page 2 (`summary` and `priority`). Root JSON schema retains exactly: `site`, `audited_at`, `summary`, and `findings`. Zero unsolicited root keys.
-  - *Real Discovered Metadata*: Ingests real extracted page titles, meta descriptions, canonical URLs, and section headings, avoiding hallucinated placeholder text.
+  - *Real Discovered Metadata*: Ingests real extracted page titles, meta descriptions, canonical URLs, and section headings directly from the page DOM (avoiding hallucinated placeholder content), while providing cleanly-marked placeholder tokens for external entity registries.
 
 ---
 
@@ -146,7 +146,7 @@ The orchestrator (`run_audit.py`) executes a sequential, causally-shielded pipel
 
 ### Prerequisites
 - Python 3.10+
-- Zero mandatory external dependencies (pure standard library with automatic acceleration if `requests`/`bs4` present).
+- Zero mandatory external dependencies (pure Python standard library; optional acceleration if `requests` is present).
 
 ### Running an Audit
 ```bash
