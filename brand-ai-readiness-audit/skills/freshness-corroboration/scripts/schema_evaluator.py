@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Dedicated Schema.org Structured Data Evaluator.
-Validates syntax, structure, and required properties for Organization, WebSite, Product, FAQPage.
+Evaluates structured data across homepage and discovered subpages,
+producing quantified multi-page evidence matching Handout Page 2 specifications.
 """
 
 import json
@@ -28,13 +29,39 @@ def extract_jsonld_blocks(html: str) -> tuple[list, list]:
             errors.append(f"Block {idx+1}: {str(e)[:100]}")
     return blocks, errors
 
-def evaluate_schema(html: str) -> tuple[list, list, list]:
+def evaluate_schema(html: str, subpages: list = None) -> tuple[list, list, list]:
     """
-    Evaluate Schema.org markup.
-    Returns (findings, jsonld_blocks, types_found).
+    Evaluate Schema.org markup across homepage and any discovered subpages.
+    Returns (findings, root_jsonld_blocks, types_found).
     """
     findings = []
-    blocks, parse_errors = extract_jsonld_blocks(html)
+    all_pages = [{"path": "/", "html": html}]
+    if subpages:
+        for sp in subpages:
+            all_pages.append({"path": sp.get("path", "/subpage"), "html": sp.get("html", "")})
+
+    total_pages = len(all_pages)
+    pages_with_schema = 0
+    all_blocks = []
+    parse_errors = []
+    types_found = []
+
+    for idx, page in enumerate(all_pages):
+        blocks, errors = extract_jsonld_blocks(page["html"])
+        if blocks:
+            pages_with_schema += 1
+            all_blocks.extend(blocks)
+            for b in blocks:
+                if isinstance(b, dict):
+                    b_type = b.get("@type", "")
+                    if isinstance(b_type, list):
+                        types_found.extend(b_type)
+                    elif b_type:
+                        types_found.append(b_type)
+        if errors:
+            parse_errors.extend([f"[{page['path']}] {err}" for err in errors])
+
+    root_blocks, root_errors = extract_jsonld_blocks(html)
 
     if parse_errors:
         findings.append({
@@ -48,38 +75,44 @@ def evaluate_schema(html: str) -> tuple[list, list, list]:
             }
         })
 
-    types_found = []
-    for b in blocks:
-        if isinstance(b, dict):
-            b_type = b.get("@type", "")
-            if isinstance(b_type, list):
-                types_found.extend(b_type)
-            elif b_type:
-                types_found.append(b_type)
-
-    if not blocks and not parse_errors:
+    # Quantified multi-page evidence matching Handout Page 2 sample
+    paths_display = ", ".join([p["path"] for p in all_pages[:4]])
+    if pages_with_schema == 0 and not parse_errors:
         findings.append({
             "id": "F-FRESH-002",
-            "title": "Missing Schema.org structured data",
+            "title": "Missing Schema.org structured data across crawled pages",
             "severity": "high",
-            "evidence": "Crawled page; 0 Schema.org JSON-LD or Microdata blocks found.",
+            "evidence": f"Crawled {total_pages} page(s) ({paths_display}); {pages_with_schema}/{total_pages} contain schema.org markup.",
             "suggested_action": {
                 "summary": "Implement Schema.org JSON-LD markup (Organization, WebSite, and Product/Service) so AI engines can reliably extract entity attributes.",
                 "priority": "high"
             }
         })
-    else:
+    elif pages_with_schema < total_pages:
+        missing_count = total_pages - pages_with_schema
+        findings.append({
+            "id": "F-FRESH-002",
+            "title": "Incomplete Schema.org structured data coverage across site routes",
+            "severity": "medium",
+            "evidence": f"Crawled {total_pages} page(s) ({paths_display}); {missing_count}/{total_pages} lack schema.org structured data.",
+            "suggested_action": {
+                "summary": "Extend Schema.org JSON-LD markup across all key subpages so AI crawlers extract structured product and service offerings.",
+                "priority": "medium"
+            }
+        })
+
+    if all_blocks:
         core_types = {"Organization", "WebSite", "Corporation", "LocalBusiness"}
         if not any(t in core_types for t in types_found):
             findings.append({
                 "id": "F-FRESH-003",
                 "title": "Missing Organization or WebSite entity schema",
                 "severity": "medium",
-                "evidence": f"Found schemas ({', '.join(types_found) or 'None'}), but missing root Organization or WebSite definition.",
+                "evidence": f"Found schemas ({', '.join(set(types_found)) or 'None'}), but missing root Organization or WebSite definition.",
                 "suggested_action": {
                     "summary": "Add Schema.org Organization markup defining official brand name, logo, description, and contact info.",
                     "priority": "medium"
                 }
             })
 
-    return findings, blocks, types_found
+    return findings, root_blocks, types_found

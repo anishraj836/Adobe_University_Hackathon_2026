@@ -1,7 +1,8 @@
 """
 Resilient HTTP & Local Fixture Fetcher for Brand AI-Readiness Audit.
-Supports dual-probe UA (Browser vs GPTBot), gzip decompression, redirects,
-timeouts, and transparent local fixture/file:// ingestion.
+Supports dual-probe UA (Browser vs GPTBot), multi-page subpage discovery,
+gzip decompression, redirects, timeouts, RFC 9309 robots.txt respect,
+and transparent local fixture/file:// ingestion.
 """
 
 import os
@@ -35,7 +36,7 @@ def is_local_target(target: str) -> bool:
     return False
 
 def fetch_local(target: str) -> dict:
-    """Read target from local disk or fixture directory."""
+    """Read target from local disk or fixture directory, including subpages."""
     clean_path = target.replace("file://", "")
     if os.path.isdir(clean_path):
         index_file = os.path.join(clean_path, "index.html")
@@ -60,6 +61,19 @@ def fetch_local(target: str) -> dict:
             with open(llms_file, "r", encoding="utf-8", errors="ignore") as f:
                 llms_content = f.read()
 
+        # Check for sibling HTML subpages in fixture directory
+        subpages = []
+        for fname in os.listdir(clean_path):
+            if fname.endswith(".html") and fname != "index.html":
+                sub_path = os.path.join(clean_path, fname)
+                with open(sub_path, "r", encoding="utf-8", errors="ignore") as f:
+                    subpages.append({
+                        "url": f"file://{os.path.abspath(sub_path)}",
+                        "path": f"/{fname}",
+                        "html": f.read(),
+                        "status": 200
+                    })
+
         return {
             "status": 200,
             "url": f"file://{os.path.abspath(clean_path)}",
@@ -67,6 +81,7 @@ def fetch_local(target: str) -> dict:
             "robots_txt": robots_content,
             "sitemap_xml": sitemap_content,
             "llms_txt": llms_content,
+            "subpages": subpages,
             "headers": {"content-type": "text/html; charset=utf-8"},
             "is_local": True,
             "error": None
@@ -86,6 +101,7 @@ def fetch_local(target: str) -> dict:
             "html": html_content,
             "robots_txt": robots_content,
             "sitemap_xml": "",
+            "subpages": [],
             "headers": {"content-type": "text/html; charset=utf-8"},
             "is_local": True,
             "error": None
@@ -96,6 +112,7 @@ def fetch_local(target: str) -> dict:
         "html": "",
         "robots_txt": "",
         "sitemap_xml": "",
+        "subpages": [],
         "headers": {},
         "is_local": True,
         "error": f"Local path not found: {target}"
@@ -162,14 +179,96 @@ def fetch_url(url: str, user_agent: str = BROWSER_UA, timeout: int = 6) -> dict:
                 "error": str(inner_e or e)
             }
 
+def is_path_allowed_by_robots(path: str, robots_text: str, user_agent: str = "*") -> bool:
+    """RFC 9309 check: verify if a path is allowed by robots.txt before crawling."""
+    if not robots_text:
+        return True
+    lines = robots_text.splitlines()
+    applies = False
+    for line in lines:
+        line = line.split('#')[0].strip()
+        if not line:
+            continue
+        if line.lower().startswith("user-agent:"):
+            agent = line.split(":", 1)[1].strip().lower()
+            applies = (agent == user_agent.lower() or agent == "*")
+        elif applies and line.lower().startswith("disallow:"):
+            dis_path = line.split(":", 1)[1].strip()
+            if dis_path and path.startswith(dis_path):
+                return False
+        elif applies and line.lower().startswith("allow:"):
+            allow_path = line.split(":", 1)[1].strip()
+            if allow_path and path.startswith(allow_path):
+                return True
+    return True
+
+def discover_subpages(html: str, origin: str, robots_txt: str, max_subpages: int = 3) -> list:
+    """Discover, prioritize, and fetch high-leverage internal subpages adhering to robots.txt."""
+    if not html:
+        return []
+    
+    # Extract candidate hrefs
+    hrefs = re.findall(r'<a\s+[^>]*href=["\']([^"\']+)["\']', html, re.I)
+    candidates = set()
+
+    # Prioritization buckets
+    priority_keywords = ["/product", "/features", "/pricing", "/about", "/docs", "/api", "/solutions"]
+    excluded_keywords = ["logout", "login", "signin", "signup", "cart", "checkout", "account", "auth", "terms", "privacy"]
+    excluded_extensions = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".pdf", ".zip", ".css", ".js")
+
+    for h in hrefs:
+        h = h.strip()
+        if not h or h.startswith("#") or h.startswith("mailto:") or h.startswith("tel:") or h.startswith("javascript:"):
+            continue
+        if any(h.lower().endswith(ext) for ext in excluded_extensions):
+            continue
+        if any(kw in h.lower() for kw in excluded_keywords):
+            continue
+
+        resolved = urljoin(origin, h)
+        parsed = urlparse(resolved)
+        parsed_origin = urlparse(origin)
+
+        # Ensure same host
+        if parsed.netloc.lower() == parsed_origin.netloc.lower():
+            path = parsed.path or "/"
+            if path != "/" and path != "":
+                candidates.add((resolved, path))
+
+    # Sort candidates by priority keywords
+    sorted_candidates = sorted(
+        candidates,
+        key=lambda item: any(kw in item[1].lower() for kw in priority_keywords),
+        reverse=True
+    )
+
+    subpages = []
+    for full_url, path in sorted_candidates:
+        if len(subpages) >= max_subpages:
+            break
+        # RFC 9309 check: Ensure path is permitted by robots.txt before crawling
+        if not is_path_allowed_by_robots(path, robots_txt):
+            continue
+        sub_resp = fetch_url(full_url, user_agent=BROWSER_UA, timeout=4)
+        if sub_resp.get("status") == 200:
+            subpages.append({
+                "url": full_url,
+                "path": path,
+                "html": sub_resp.get("html", ""),
+                "status": 200
+            })
+
+    return subpages
+
 def fetch_target_bundle(target: str) -> dict:
     """
     Fetch comprehensive site bundle:
     - Homepage via standard browser UA
-    - Homepage probe via GPTBot UA (for cloaking / differential block check)
+    - Homepage probe via GPTBot UA (for cloaking check)
     - robots.txt
     - sitemap.xml
     - llms.txt
+    - Up to 3 prioritized internal subpages (adhering to robots.txt)
     """
     if is_local_target(target):
         return fetch_local(target)
@@ -188,6 +287,7 @@ def fetch_target_bundle(target: str) -> dict:
     # 3. robots.txt
     robots_url = urljoin(origin, "/robots.txt")
     robots_resp = fetch_url(robots_url, user_agent=BROWSER_UA)
+    robots_txt = robots_resp.get("html", "") if robots_resp.get("status") == 200 else ""
 
     # 4. sitemap.xml
     sitemap_url = urljoin(origin, "/sitemap.xml")
@@ -197,6 +297,11 @@ def fetch_target_bundle(target: str) -> dict:
     llms_url = urljoin(origin, "/llms.txt")
     llms_resp = fetch_url(llms_url, user_agent=BROWSER_UA)
 
+    # 6. Discover and crawl prioritized subpages
+    subpages = []
+    if home_resp.get("status") == 200:
+        subpages = discover_subpages(home_resp.get("html", ""), origin, robots_txt, max_subpages=3)
+
     return {
         "status": home_resp.get("status", 0),
         "url": home_resp.get("url", base_url),
@@ -205,9 +310,10 @@ def fetch_target_bundle(target: str) -> dict:
         "headers": home_resp.get("headers", {}),
         "bot_probe_status": bot_resp.get("status", 0),
         "bot_probe_error": bot_resp.get("error"),
-        "robots_txt": robots_resp.get("html", "") if robots_resp.get("status") == 200 else "",
+        "robots_txt": robots_txt,
         "sitemap_xml": sitemap_resp.get("html", "") if sitemap_resp.get("status") == 200 else "",
         "llms_txt": llms_resp.get("html", "") if llms_resp.get("status") == 200 else "",
+        "subpages": subpages,
         "is_local": False,
         "error": home_resp.get("error")
     }

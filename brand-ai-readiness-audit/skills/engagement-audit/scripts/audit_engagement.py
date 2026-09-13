@@ -287,7 +287,22 @@ def audit_engagement(bundle: dict) -> list:
             }
         })
 
-    # 5. Differentiator 1: LLM RAG Quotability Engine
+
+    # 5. Mobile Viewport Meta Tag (Mobile AI Assistant Referral Landing)
+    viewport_match = re.search(r"<meta\s+name=['\"]viewport['\"]\s+content=['\"]([^'\"]+)['\"]", html, re.I)
+    if not viewport_match:
+        findings.append({
+            "id": "F-ENGAGE-010",
+            "title": "Missing mobile viewport meta tag (mobile AI referral bounce risk)",
+            "severity": "medium",
+            "evidence": "No <meta name='viewport'> tag detected in document <head>; mobile AI assistant referrals (ChatGPT/Perplexity iOS) receive unscaled desktop UI.",
+            "suggested_action": {
+                "summary": "Add <meta name='viewport' content='width=device-width, initial-scale=1'> to ensure responsive rendering for mobile AI referrals.",
+                "priority": "medium"
+            }
+        })
+
+    # 6. Differentiator 1: LLM RAG Quotability Engine
     rag_eval = evaluate_rag_quotability(html, brand_hint)
     if rag_eval.get("flagged"):
         findings.append({

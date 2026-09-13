@@ -125,5 +125,33 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         print(f"\n[*] Audited 5 test fixtures in {elapsed:.3f} seconds (< 3.0s limit).")
         self.assertLess(elapsed, 3.0)
 
+
+    def test_08_rfc_9309_specific_agent_precedence(self):
+        # Cloudflare pattern: Wildcard disallowed, but GPTBot explicitly allowed
+        from audit_crawl import parse_robots_records, is_bot_blocked
+        robots_txt = """
+        User-agent: *
+        Disallow: /
+
+        User-agent: GPTBot
+        Allow: /
+        """
+        records = parse_robots_records(robots_txt)
+        blocked, reason = is_bot_blocked("GPTBot", records)
+        self.assertFalse(blocked, "RFC 9309 precedence: Specific Allow: / must override wildcard Disallow: /")
+
+    def test_09_multi_page_subpage_evidence(self):
+        from schema_evaluator import evaluate_schema
+        html_home = "<html><body><h1>Home</h1></body></html>"
+        subpages = [
+            {"path": "/pricing", "html": "<html><body><h1>Pricing</h1></body></html>"},
+            {"path": "/about", "html": "<html><body><h1>About</h1></body></html>"}
+        ]
+        findings, blocks, types = evaluate_schema(html_home, subpages)
+        self.assertGreaterEqual(len(findings), 1)
+        evidence = findings[0]["evidence"]
+        self.assertIn("Crawled 3 page(s)", evidence)
+        self.assertIn("0/3 contain schema.org markup", evidence)
+
 if __name__ == "__main__":
     unittest.main()

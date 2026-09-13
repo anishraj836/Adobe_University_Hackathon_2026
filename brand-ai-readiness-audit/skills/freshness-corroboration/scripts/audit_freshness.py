@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Freshness & Entity Corroboration Audit Skill — Composed Orchestration
-Coordinates schema_evaluator, entity_resolver, freshness_evaluator, and nontext_inspector.
+Coordinates schema_evaluator, entity_resolver, freshness_evaluator, and nontext_inspector
+across homepage and crawled subpages.
 """
 
 import os
@@ -27,13 +28,14 @@ def audit_freshness(bundle: dict) -> list:
     findings = []
     html = bundle.get("html", "")
     headers = bundle.get("headers", {})
+    subpages = bundle.get("subpages", [])
     home_status = bundle.get("status", 200)
 
     if home_status == 0 or (home_status >= 400 and home_status != 404):
         return []
 
-    # 1. Schema.org Structured Data
-    schema_findings, jsonld_blocks, types_found = evaluate_schema(html)
+    # 1. Multi-Page Schema.org Structured Data
+    schema_findings, jsonld_blocks, types_found = evaluate_schema(html, subpages=subpages)
     findings.extend(schema_findings)
 
     # 2. Entity Disambiguation & Cross-Web Agreement (Appendix D)

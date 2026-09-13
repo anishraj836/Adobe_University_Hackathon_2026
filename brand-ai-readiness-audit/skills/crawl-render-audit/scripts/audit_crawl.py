@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Crawl & Render Audit Skill
-Audits off-site AI crawler access, robots.txt bot rules, meta tags, and SSR vs CSR gaps.
+Audits off-site AI crawler access, RFC 9309 robots.txt bot rules (with explicit user-agent precedence),
+meta tags, and SSR vs CSR gaps.
 """
 
 import os
@@ -24,17 +25,17 @@ AI_CRAWLERS = [
 
 def strip_tags(html: str) -> str:
     """Strip HTML tags, scripts, and styles to get raw visible text."""
-    # Remove script and style tags
     clean = re.sub(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', ' ', html, flags=re.IGNORECASE)
     clean = re.sub(r'<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>', ' ', clean, flags=re.IGNORECASE)
-    # Remove tags
     clean = re.sub(r'<[^>]+>', ' ', clean)
-    # Collapse whitespace
     return re.sub(r'\s+', ' ', clean).strip()
 
-def parse_robots_rules(robots_text: str) -> dict:
-    """Parse robots.txt to extract per-user-agent disallow directives."""
-    rules = {}
+def parse_robots_records(robots_text: str) -> dict:
+    """
+    RFC 9309 parser: extracts records for each User-agent, recording both allow and disallow paths.
+    Returns {agent: {"allow": [...], "disallow": [...]}, "__sitemaps__": [...]}
+    """
+    records = {}
     current_agents = []
     lines = robots_text.splitlines()
 
@@ -45,18 +46,53 @@ def parse_robots_rules(robots_text: str) -> dict:
         if line.lower().startswith("user-agent:"):
             agent = line.split(":", 1)[1].strip().lower()
             current_agents.append(agent)
+            records.setdefault(agent, {"allow": [], "disallow": []})
         elif line.lower().startswith("disallow:"):
             path = line.split(":", 1)[1].strip()
             for agent in current_agents:
-                rules.setdefault(agent, []).append(path)
-        elif line.lower().startswith("sitemap:"):
-            rules.setdefault("__sitemaps__", []).append(line.split(":", 1)[1].strip())
+                records[agent]["disallow"].append(path)
         elif line.lower().startswith("allow:"):
-            pass
+            path = line.split(":", 1)[1].strip()
+            for agent in current_agents:
+                records[agent]["allow"].append(path)
+        elif line.lower().startswith("sitemap:"):
+            records.setdefault("__sitemaps__", []).append(line.split(":", 1)[1].strip())
         else:
-            # Reset agent block on unrecognized directive if needed
+            # Unrecognized directives or separators reset current agent block if blank
             pass
-    return rules
+
+    return records
+
+def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
+    """
+    RFC 9309 precedence:
+    1. Most specific User-Agent record takes complete precedence over User-agent: *.
+    2. Inside the record, Allow overrides Disallow for equal or longer paths.
+    """
+    bot_lower = bot.lower()
+    
+    # 1. Check specific bot record
+    if bot_lower in records:
+        entry = records[bot_lower]
+        allows = entry.get("allow", [])
+        disallows = entry.get("disallow", [])
+        if "/" in allows:
+            return False, f"Explicitly permitted by 'User-agent: {bot}' Allow: /"
+        if "/" in disallows or ("" in disallows and len(disallows) == 1):
+            return True, f"Explicitly blocked by 'User-agent: {bot}' Disallow: /"
+        return False, "Specific record does not disallow root"
+
+    # 2. Fall back to wildcard *
+    if "*" in records:
+        wildcard = records["*"]
+        allows = wildcard.get("allow", [])
+        disallows = wildcard.get("disallow", [])
+        if "/" in allows:
+            return False, "Wildcard (*) explicitly allows root"
+        if "/" in disallows:
+            return True, "Blocked by wildcard 'User-agent: *' Disallow: /"
+
+    return False, "Default-allowed under RFC 9309"
 
 def audit_crawl(bundle: dict) -> list:
     """Execute all crawl-render checks on the fetched site bundle."""
@@ -96,35 +132,31 @@ def audit_crawl(bundle: dict) -> list:
             }
         })
 
-    # 3. Robots.txt Analysis for AI Crawlers
+    # 3. RFC 9309 Robots.txt Analysis for AI Crawlers
     if robots_txt:
-        rules = parse_robots_rules(robots_txt)
+        records = parse_robots_records(robots_txt)
         blocked_bots = []
-        
-        # Check wildcard disallow
-        wildcard_disallows = rules.get("*", [])
-        if "/" in wildcard_disallows or "" in wildcard_disallows and len(wildcard_disallows) == 1 and wildcard_disallows[0] == "/":
-            blocked_bots.append("all crawlers (*)")
+        evidence_details = []
 
         for bot in AI_CRAWLERS:
-            if bot in rules:
-                bot_disallows = rules[bot]
-                if "/" in bot_disallows:
-                    blocked_bots.append(bot)
+            blocked, reason = is_bot_blocked(bot, records)
+            if blocked:
+                blocked_bots.append(bot)
+                evidence_details.append(f"{bot} ({reason})")
 
         if blocked_bots:
+            is_gpt_blocked = "gptbot" in blocked_bots
             findings.append({
                 "id": "F-CRAWL-003",
                 "title": "Robots.txt blocks AI assistant crawlers",
-                "severity": "critical" if "all crawlers (*)" in blocked_bots or "gptbot" in blocked_bots else "high",
-                "evidence": f"Disallow: / configured for: {', '.join(blocked_bots)} in robots.txt.",
+                "severity": "critical" if is_gpt_blocked else "high",
+                "evidence": f"RFC 9309 evaluation identified {len(blocked_bots)} blocked AI crawler(s): {', '.join(blocked_bots)}.",
                 "suggested_action": {
                     "summary": "Update robots.txt to permit indexing by conversational AI crawlers (GPTBot, ClaudeBot, PerplexityBot) on public content paths.",
-                    "priority": "critical" if "all crawlers (*)" in blocked_bots else "high"
+                    "priority": "critical" if is_gpt_blocked else "high"
                 }
             })
     else:
-        # Missing robots.txt is not a blocker (RFC 9309 allows crawl), but sitemap discovery is impacted
         if not is_local:
             findings.append({
                 "id": "F-CRAWL-004",
@@ -166,16 +198,13 @@ def audit_crawl(bundle: dict) -> list:
         })
 
     # 5. Modern SSR vs Pure CSR Gap Detection
-    # Strip scripts, styles, and extract body text
     body_match = re.search(r'<body\b[^>]*>(.*?)<\/body>', html, re.DOTALL | re.IGNORECASE)
     body_content = body_match.group(1) if body_match else html
     visible_text = strip_tags(body_content)
     words = visible_text.split()
     word_count = len(words)
 
-    # Check for empty mount roots
     has_empty_root = bool(re.search(r'<div\s+id=["\'](root|app|__next)["\']\s*>\s*<\/div>', html, re.I))
-    has_noscript = bool(re.search(r'<noscript>.*?javascript.*?</noscript>', html, re.I | re.DOTALL))
 
     if has_empty_root and word_count < 50:
         findings.append({
