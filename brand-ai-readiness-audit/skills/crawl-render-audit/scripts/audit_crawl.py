@@ -68,6 +68,8 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
     RFC 9309 precedence:
     1. Most specific User-Agent record takes complete precedence over User-agent: *.
     2. Inside the record, Allow overrides Disallow for equal or longer paths.
+    3. Only root-level disallow ('/' or '/*') without Allow override constitutes a site indexing block.
+       Narrow path-scoped disallows (/admin/, /webstats/) do not block the site from being crawled.
     """
     bot_lower = bot.lower()
     
@@ -76,13 +78,15 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
         entry = records[bot_lower]
         allows = entry.get("allow", [])
         disallows = entry.get("disallow", [])
-        if "/" in allows:
+        has_root_allow = "/" in allows or "/*" in allows
+        has_root_disallow = "/" in disallows or "/*" in disallows
+        if has_root_allow:
             return False, f"Explicitly permitted by 'User-agent: {bot}' Allow: /"
-        if "/" in disallows:
+        if has_root_disallow:
             return True, f"Explicitly blocked by 'User-agent: {bot}' Disallow: /"
         dis_paths = [d for d in disallows if d]
         if dis_paths:
-            return True, f"Blocked on path(s) ({', '.join(dis_paths[:3])}) by 'User-agent: {bot}'"
+            return False, f"Path-scoped restriction only ({', '.join(dis_paths[:3])}) by 'User-agent: {bot}' (site remains indexable)"
         return False, "Specific record does not disallow root or indexed paths"
 
     # 2. Fall back to wildcard *
@@ -90,13 +94,15 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
         wildcard = records["*"]
         allows = wildcard.get("allow", [])
         disallows = wildcard.get("disallow", [])
-        if "/" in allows:
+        has_root_allow = "/" in allows or "/*" in allows
+        has_root_disallow = "/" in disallows or "/*" in disallows
+        if has_root_allow:
             return False, "Wildcard (*) explicitly allows root"
-        if "/" in disallows:
+        if has_root_disallow:
             return True, "Blocked by wildcard 'User-agent: *' Disallow: /"
         dis_paths = [d for d in disallows if d]
         if dis_paths:
-            return True, f"Blocked on path(s) ({', '.join(dis_paths[:3])}) by wildcard '*'"
+            return False, f"Wildcard path-scoped restriction only ({', '.join(dis_paths[:3])}) (site remains indexable)"
 
     return False, "Default-allowed under RFC 9309"
 
@@ -232,7 +238,7 @@ def audit_crawl(bundle: dict) -> list[dict]:
                 "id": "F-CRAWL-003",
                 "title": "Robots.txt blocks AI assistant crawlers",
                 "severity": "critical" if is_gpt_blocked else "high",
-                "evidence": f"RFC 9309 evaluation identified {len(blocked_bots)} blocked AI crawler(s): {', '.join(blocked_bots)}.",
+                "evidence": f"RFC 9309 evaluation identified {len(blocked_bots)} blocked AI crawler(s): {', '.join(evidence_details)}.",
                 "suggested_action": {
                     "summary": "Update robots.txt to permit indexing by conversational AI crawlers (GPTBot, ClaudeBot, PerplexityBot) on public content paths.",
                     "priority": "critical" if is_gpt_blocked else "high"

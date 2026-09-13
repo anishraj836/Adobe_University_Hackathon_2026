@@ -84,7 +84,7 @@ def audit_engagement(bundle: dict) -> list:
     quotability_eval = evaluate_quotability(html, brand_hint)
     if quotability_eval.get("flagged"):
         findings.append({
-            "id": "F-ENGAGE-008",
+            "id": "F-ENGAGE-015",
             "title": "High RAG retrieval failure risk: Substantive facts lack self-contained entity binding",
             "severity": "medium",
             "evidence": quotability_eval.get("evidence"),
@@ -98,7 +98,7 @@ def audit_engagement(bundle: dict) -> list:
     filler_eval = evaluate_filler(html)
     if filler_eval.get("flagged"):
         findings.append({
-            "id": "F-ENGAGE-009",
+            "id": "F-ENGAGE-016",
             "title": "AI Summarizer Dropout Zone: High filler-to-fact ratio obscures core propositions (Appendix F)",
             "severity": "medium",
             "evidence": filler_eval.get("evidence"),

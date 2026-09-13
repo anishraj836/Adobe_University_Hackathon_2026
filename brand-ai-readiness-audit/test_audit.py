@@ -507,19 +507,26 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertTrue(unsafe_res["flagged"], "True positive missed: Fluff-heavy technical section lacking metrics was not flagged!")
 
     def test_20_path_scoped_robots_disallow_guard(self):
-        """False-positive & false-negative guard: Explicitly permitted bot with empty Disallow: passes cleanly, while path-scoped Disallow: /private/ flags as partial block."""
-        # Safe Case: Specific record with empty Disallow (RFC 9309 allow-all)
+        """False-positive guard: Path-scoped Disallow rules (/private/, /webstats/) do NOT flag site as blocked, while root Disallow: / correctly triggers block."""
+        # Case A: Specific record with empty Disallow (RFC 9309 allow-all)
         safe_robots = "User-agent: ClaudeBot\nDisallow:\n"
         safe_records = parse_robots_records(safe_robots)
         blocked_safe, _ = is_bot_blocked("claudebot", safe_records)
         self.assertFalse(blocked_safe, "False positive: Explicitly permitted bot with empty Disallow was flagged as blocked!")
 
-        # Unsafe Case: Specific record with path-scoped Disallow: /private/
-        unsafe_robots = "User-agent: ClaudeBot\nDisallow: /private/\n"
-        unsafe_records = parse_robots_records(unsafe_robots)
-        blocked_unsafe, reason_unsafe = is_bot_blocked("claudebot", unsafe_records)
-        self.assertTrue(blocked_unsafe, "True positive missed: Path-scoped disallow was not flagged as blocked!")
-        self.assertIn("/private/", reason_unsafe)
+        # Case B: Specific record with path-scoped Disallow: /private/ (site remains indexable!)
+        path_scoped_robots = "User-agent: ClaudeBot\nDisallow: /private/\n"
+        path_records = parse_robots_records(path_scoped_robots)
+        blocked_path, reason_path = is_bot_blocked("claudebot", path_records)
+        self.assertFalse(blocked_path, "False positive: Narrow path-scoped Disallow: /private/ must not flag site as blocked!")
+        self.assertIn("/private/", reason_path)
+
+        # Case C: True positive: Root Disallow: / blocks the crawler
+        root_blocked_robots = "User-agent: ClaudeBot\nDisallow: /\n"
+        root_records = parse_robots_records(root_blocked_robots)
+        blocked_root, reason_root = is_bot_blocked("claudebot", root_records)
+        self.assertTrue(blocked_root, "True positive missed: Root Disallow: / must flag as blocked!")
+        self.assertIn("Disallow: /", reason_root)
 
     def test_21_csr_data_island_severity_downgrade_guard(self):
         """Severity calibration guard: Empty mount root with __NEXT_DATA__ JSON state downgrades from critical to medium, while non-JSON garbage scripts retain critical severity."""
@@ -697,7 +704,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         </html>
         """
         safe_findings = inspect_nontext(safe_html)
-        self.assertFalse(any(f["id"] == "F-FRESH-007" for f in safe_findings), "False positive: Decorative images with role='presentation' or aria-hidden='true' were flagged for missing alt text!")
+        self.assertFalse(any(f["id"] == "F-FRESH-009" for f in safe_findings), "False positive: Decorative images with role='presentation' or aria-hidden='true' were flagged for missing alt text!")
 
         # Case B: Genuinely informative diagram/infographic images lacking descriptive alt text
         unsafe_html = """
@@ -714,7 +721,7 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         </html>
         """
         unsafe_findings = inspect_nontext(unsafe_html)
-        self.assertTrue(any(f["id"] == "F-FRESH-007" for f in unsafe_findings), "True positive missed: Informative diagram graphics lacking alt text were not flagged!")
+        self.assertTrue(any(f["id"] == "F-FRESH-009" for f in unsafe_findings), "True positive missed: Informative diagram graphics lacking alt text were not flagged!")
         self.assertIn("3/3 (100%) informative img elements", unsafe_findings[0]["evidence"])
 
     def test_26_expletive_pronoun_filter_guard(self):

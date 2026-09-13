@@ -32,7 +32,7 @@ def inspect_nontext(html: str) -> list:
         pct = (missing_alt_count / informative_imgs) * 100
         if pct > 40:
             findings.append({
-                "id": "F-FRESH-007",
+                "id": "F-FRESH-009",
                 "title": "Brand information and diagrams locked in uncaptioned images",
                 "severity": "medium",
                 "evidence": f"{missing_alt_count}/{informative_imgs} ({pct:.0f}%) informative img elements lack descriptive alt attributes.",

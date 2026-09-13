@@ -1,7 +1,32 @@
 {
   "common_homonyms": [
-    "pulse", "forge", "canvas", "atlas", "beacon", "echo", "radar", "ramp",
-    "linear", "mercury", "stride", "orbit", "spark", "apex", "prism", "flux",
-    "vector", "nexus", "cortex", "relay", "signal", "pilot", "anchor", "crest"
+    "anchor", "apex", "apple", "arc", "arrow", "atlas", "aura", "aurora",
+    "axis", "badger", "banner", "base", "beacon", "beam", "blade", "blend",
+    "bolt", "border", "box", "branch", "bridge", "buffer", "canvas", "capsule",
+    "catalyst", "cinder", "circle", "cliff", "cloak", "clover", "clutch", "compass",
+    "copper", "cord", "core", "corner", "cortex", "cradle", "craft", "crest",
+    "crown", "crystal", "cube", "current", "cursor", "dart", "dash", "delta",
+    "dock", "door", "drift", "echo", "ember", "engine", "epoch", "facet",
+    "feather", "flare", "fleet", "flock", "flux", "focus", "forge", "fountain",
+    "frame", "frost", "fuse", "gauge", "gem", "ghost", "glance", "glow",
+    "grain", "gravity", "grid", "groove", "grove", "harbor", "harvest", "hatch",
+    "haven", "hawk", "helm", "hive", "hook", "horizon", "hub", "hype",
+    "impulse", "iron", "kite", "ladder", "lantern", "lattice", "launch", "layer",
+    "leaf", "lens", "level", "lever", "light", "linear", "link", "loom",
+    "loop", "lotus", "mantle", "matrix", "maze", "mercury", "mint", "mirror",
+    "mode", "mosaic", "needle", "nest", "nexus", "node", "notion", "nucleus",
+    "oasis", "orbit", "origin", "palette", "panel", "patch", "path", "peak",
+    "pebble", "pilot", "pin", "pivot", "pixel", "plaid", "plane", "plate",
+    "pod", "prism", "pulse", "pyramid", "quarry", "quest", "radar", "raft",
+    "ramp", "range", "ray", "realm", "relic", "relay", "ridge", "rift",
+    "ring", "ripple", "rocket", "root", "roster", "rune", "sail", "scale",
+    "scope", "scout", "seed", "shard", "shield", "shift", "shore", "signal",
+    "silo", "slate", "slice", "snap", "snowflake", "socket", "source", "spark",
+    "spectrum", "sphere", "spine", "spoke", "spring", "sprout", "square", "stack",
+    "stash", "stem", "stone", "stream", "stride", "stripe", "summit", "surge",
+    "switch", "sync", "tide", "timber", "torch", "trace", "track", "trail",
+    "tread", "vault", "vector", "velocity", "venture", "vertex", "vessel", "vine",
+    "visor", "vortex", "wave", "wedge", "well", "wheel", "wing", "wire",
+    "yard", "zenith"
   ]
 }

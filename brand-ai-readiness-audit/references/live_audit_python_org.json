@@ -1,25 +1,15 @@
 {
   "site": "www.python.org",
-  "audited_at": "2026-09-13T04:30:07Z",
+  "audited_at": "2026-09-13T16:01:34Z",
   "summary": {
     "total_findings": 8,
-    "critical": 1,
+    "critical": 0,
     "high": 0,
-    "medium": 7
+    "medium": 8
   },
   "findings": [
     {
       "id": "F-001",
-      "title": "Robots.txt blocks AI assistant crawlers",
-      "severity": "critical",
-      "evidence": "RFC 9309 evaluation identified 9 blocked AI crawler(s): gptbot, chatgpt-user, claudebot, perplexitybot, google-extended, applebot-extended, amazonbot, bytespider, ccbot.",
-      "suggested_action": {
-        "summary": "Update robots.txt to permit indexing by conversational AI crawlers (GPTBot, ClaudeBot, PerplexityBot) on public content paths.",
-        "priority": "critical"
-      }
-    },
-    {
-      "id": "F-002",
       "title": "No XML Sitemap found or referenced",
       "severity": "medium",
       "evidence": "Neither /sitemap.xml was accessible nor was a Sitemap: directive declared in robots.txt.",
@@ -29,7 +19,7 @@
       }
     },
     {
-      "id": "F-003",
+      "id": "F-002",
       "title": "Multiple competing <h1> headings cause orientation ambiguity",
       "severity": "medium",
       "evidence": "Found 5 distinct <h1> tags across parsed DOM, creating conflicting hierarchy signals for visitors and scrapers.",
@@ -39,7 +29,7 @@
       }
     },
     {
-      "id": "F-004",
+      "id": "F-003",
       "title": "Cognitive mismatch between primary <h1> and meta description",
       "severity": "medium",
       "evidence": "0 shared topical keywords between headline ('intuitive interpretation') and meta description ('The official home of the Python Programming Language...'). Arriving AI referrals experience immediate cognitive disconnect.",
@@ -49,12 +39,22 @@
       }
     },
     {
-      "id": "F-005",
+      "id": "F-004",
       "title": "Subheadings lack persistent citation anchor IDs",
       "severity": "medium",
       "evidence": "Only 0/9 (H2-H4) subheadings possess HTML id attributes for fragment deep-linking.",
       "suggested_action": {
         "summary": "Attach persistent semantic id attributes (e.g., id='features', id='pricing') to all H2/H3 headers so AI assistants can cite and deep-link directly to factual claims.",
+        "priority": "medium"
+      }
+    },
+    {
+      "id": "F-005",
+      "title": "Missing primary Call to Action (CTA) for AI-referred visitor conversion",
+      "severity": "medium",
+      "evidence": "Scanned interactive elements across DOM; 0 primary conversion CTAs ('Get Started', 'Sign Up', 'Book a Demo', 'Contact Us') detected.",
+      "suggested_action": {
+        "summary": "Add clear, prominent primary Call to Action (CTA) buttons ('Get Started', 'Book a Demo', or 'Contact Us') above the fold and in closing sections to capture AI-referred visitor intent.",
         "priority": "medium"
       }
     },
