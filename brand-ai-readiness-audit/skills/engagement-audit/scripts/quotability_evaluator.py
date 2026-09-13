@@ -82,5 +82,5 @@ def evaluate_quotability(html: str, brand_hint: str = "") -> dict:
         "score": aqs,
         "total_chunks": len(chunks),
         "dangling_chunks": dangling_count,
-        "evidence": f"[Confidence: 89%] Simulated {len(chunks)} RAG retrieval chunks (500 chars); {dangling_count}/{len(chunks)} ({int((dangling_count/len(chunks))*100)}%) rely on dangling pronouns without explicit entity binding. AI Quotability Score: {aqs}/100."
+        "evidence": f"Simulated {len(chunks)} passage chunks (500 chars); {dangling_count}/{len(chunks)} ({int((dangling_count/len(chunks))*100)}%) rely on dangling pronouns without explicit entity binding. Atomic Quotability Score: {aqs}/100."
     }

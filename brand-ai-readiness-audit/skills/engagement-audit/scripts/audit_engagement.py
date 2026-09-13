@@ -52,7 +52,7 @@ def audit_engagement(bundle: dict) -> list:
             "id": "F-ENGAGE-006",
             "title": "Low substantive body content (thin landing experience)",
             "severity": "high",
-            "evidence": f"[Confidence: 93%] Isolated only {substantive_words} words of substantive body prose after stripping UI chrome and navigation.",
+            "evidence": f"Isolated only {substantive_words} words of substantive body prose after stripping UI chrome and navigation.",
             "suggested_action": {
                 "summary": "Expand landing page body copy with concrete specifications, benefits, and FAQ answers to retain arriving AI-referred traffic.",
                 "priority": "high"
@@ -73,7 +73,7 @@ def audit_engagement(bundle: dict) -> list:
             "id": "F-ENGAGE-007",
             "title": "Missing essential trust and compliance routes",
             "severity": "medium",
-            "evidence": f"[Confidence: 94%] Identified only {len(found_trust_signals)} trust anchor(s) ({', '.join(found_trust_signals) or 'none'}); missing privacy policy, terms, or contact links.",
+            "evidence": f"Identified only {len(found_trust_signals)} trust anchor(s) ({', '.join(found_trust_signals) or 'none'}); missing privacy policy, terms, or contact links.",
             "suggested_action": {
                 "summary": "Provide explicit links to Privacy Policy, Terms of Service, and Contact/About information to establish brand legitimacy.",
                 "priority": "medium"

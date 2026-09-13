@@ -203,7 +203,7 @@ def evaluate_conversion(html: str) -> list[dict]:
             "id": "F-ENGAGE-011",
             "title": "Missing primary Call to Action (CTA) for AI-referred visitor conversion",
             "severity": "medium",
-            "evidence": "[Confidence: 94%] Scanned interactive elements across DOM; 0 primary conversion CTAs ('Get Started', 'Sign Up', 'Book a Demo', 'Contact Us') detected.",
+            "evidence": "Scanned interactive elements across DOM; 0 primary conversion CTAs ('Get Started', 'Sign Up', 'Book a Demo', 'Contact Us') detected.",
             "suggested_action": {
                 "summary": "Add clear, prominent primary Call to Action (CTA) buttons ('Get Started', 'Book a Demo', or 'Contact Us') above the fold and in closing sections to capture AI-referred visitor intent.",
                 "priority": "medium"
@@ -216,7 +216,7 @@ def evaluate_conversion(html: str) -> list[dict]:
             "id": "F-ENGAGE-012",
             "title": "Absence of customer proof or trust verification signals",
             "severity": "medium",
-            "evidence": "[Confidence: 91%] Analyzed DOM and body prose; 0 customer testimonials, client logos, industry certifications (SOC2/ISO/GDPR), or third-party review ratings detected.",
+            "evidence": "Analyzed DOM and body prose; 0 customer testimonials, client logos, industry certifications (SOC2/ISO/GDPR), or third-party review ratings detected.",
             "suggested_action": {
                 "summary": "Incorporate verifiable trust proof signals (e.g. enterprise client logos, customer testimonials, third-party review ratings, or security/compliance certifications) to establish credibility for AI referrals.",
                 "priority": "medium"
@@ -229,7 +229,7 @@ def evaluate_conversion(html: str) -> list[dict]:
             "id": "F-ENGAGE-013",
             "title": "Missing essential commercial conversion routing",
             "severity": "medium",
-            "evidence": "[Confidence: 93%] Evaluated navigation and anchor links; 0 commercial conversion routes found matching essential paths (/pricing, /contact, /demo, /docs, /signup).",
+            "evidence": "Evaluated navigation and anchor links; 0 commercial conversion routes found matching essential paths (/pricing, /contact, /demo, /docs, /signup).",
             "suggested_action": {
                 "summary": "Provide direct navigation routes to essential commercial destinations (/pricing, /contact, /demo, /docs, /signup) to enable AI-referred visitors to transition smoothly into the conversion funnel.",
                 "priority": "medium"
@@ -242,7 +242,7 @@ def evaluate_conversion(html: str) -> list[dict]:
             "id": "F-ENGAGE-014",
             "title": "Missing discoverable FAQ or self-serve support pathways",
             "severity": "medium",
-            "evidence": "[Confidence: 89%] 0 self-serve support routes, FAQ navigation links, or FAQPage structured data detected for high-intent AI referrals seeking quick verification.",
+            "evidence": "0 self-serve support routes, FAQ navigation links, or FAQPage structured data detected for high-intent AI referrals seeking quick verification.",
             "suggested_action": {
                 "summary": "Implement an easily discoverable FAQ section or support routing to address pre-conversion evaluation questions commonly posed by AI-referred users.",
                 "priority": "medium"

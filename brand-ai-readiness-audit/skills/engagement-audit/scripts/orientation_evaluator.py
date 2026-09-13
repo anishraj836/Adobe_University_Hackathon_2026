@@ -33,7 +33,7 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
                 "id": "F-ENGAGE-002",
                 "title": "Multiple competing <h1> headings cause orientation ambiguity",
                 "severity": "medium",
-                "evidence": f"[Confidence: 94%] Found {len(h1_matches)} distinct <h1> tags across parsed DOM, creating conflicting hierarchy signals for visitors and scrapers.",
+                "evidence": f"Found {len(h1_matches)} distinct <h1> tags across parsed DOM, creating conflicting hierarchy signals for visitors and scrapers.",
                 "suggested_action": {
                     "summary": "Consolidate into a single clear <h1> representing the core proposition, demoting secondary headings to <h2>.",
                     "priority": "medium"
@@ -44,7 +44,7 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
                 "id": "F-ENGAGE-003",
                 "title": "Vague or empty primary <h1> headline",
                 "severity": "medium",
-                "evidence": f"[Confidence: 91%] Primary <h1> is only {len(h1_text)} characters ('{h1_text}').",
+                "evidence": f"Primary <h1> is only {len(h1_text)} characters ('{h1_text}').",
                 "suggested_action": {
                     "summary": "Refine the <h1> headline to communicate a specific, concise value proposition.",
                     "priority": "medium"
@@ -55,7 +55,7 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
             "id": "F-ENGAGE-001",
             "title": "Missing primary <h1> heading for visitor orientation",
             "severity": "high",
-            "evidence": "[Confidence: 96%] Crawled page; 0 <h1> heading tags detected in static DOM.",
+            "evidence": "Crawled page; 0 <h1> heading tags detected in static DOM.",
             "suggested_action": {
                 "summary": "Add a prominent <h1> tag within the hero section clearly stating what the company or product does.",
                 "priority": "high"
@@ -67,7 +67,7 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
             "id": "F-ENGAGE-004",
             "title": "Missing or empty meta description",
             "severity": "medium",
-            "evidence": "[Confidence: 95%] No valid <meta name='description'> tag found in document <head>.",
+            "evidence": "No valid <meta name='description'> tag found in document <head>.",
             "suggested_action": {
                 "summary": "Add a high-signal meta description (120-160 characters) summarizing page purpose for search snippets and AI overview cards.",
                 "priority": "medium"
@@ -81,7 +81,7 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
             "id": "F-ENGAGE-010",
             "title": "Missing mobile viewport meta tag (mobile AI referral bounce risk)",
             "severity": "medium",
-            "evidence": "[Confidence: 95%] No <meta name='viewport'> tag detected in document <head>; mobile AI assistant referrals (ChatGPT/Perplexity iOS) receive unscaled desktop UI.",
+            "evidence": "No <meta name='viewport'> tag detected in document <head>; mobile AI assistant referrals (ChatGPT/Perplexity iOS) receive unscaled desktop UI.",
             "suggested_action": {
                 "summary": "Add <meta name='viewport' content='width=device-width, initial-scale=1'> to ensure responsive rendering for mobile AI referrals.",
                 "priority": "medium"

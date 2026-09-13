@@ -22,7 +22,7 @@ When an AI assistant (ChatGPT, Perplexity) searches a live webpage to answer a u
 * **Why it fails passage retrieval and quotation**: When an assistant chunks paragraph 1 (`"[High Performance] It processes over 100,000 queries..."`), the chunk contains the pronoun "It" without the brand entity name ("FlowDB"). The semantic embedding vector reflects a generic claim about an unknown subject. Perplexity drops it because the entity cannot be quoted as a standalone factual assertion.
 * **Our Audit Flag**:
   - `title`: `"High RAG retrieval failure risk: Substantive facts lack self-contained entity binding"`
-  - `evidence`: `"[Confidence: 89%] Simulated 2 RAG retrieval chunks (500 chars); 2/2 (100%) rely on dangling pronouns without explicit entity binding. AI Quotability Score: 0/100."`
+  - `evidence`: `"Simulated 2 passage chunks (500 chars); 2/2 (100%) rely on dangling pronouns without explicit entity binding. Atomic Quotability Score: 0/100."`
 
 #### B. Good Pattern (Self-Contained & Highly Quotable)
 ```html
@@ -57,7 +57,7 @@ Appendix F notes: *"when the genuinely important lines are surrounded by low-val
   - Quantified factual metrics: **0** (no benchmarks, no protocols, no latency, no pricing).
 * **Our Audit Flag**:
   - `title`: `"AI Summarizer Dropout Zone: High filler-to-fact ratio obscures core propositions (Appendix F)"`
-  - `evidence`: `"[Confidence: 91%] Analyzed substantive technical prose; detected 10 corporate buzzwords against 0 quantified metrics (buzzword saturation: 27.0%). High risk of AI summarizer dropout per Appendix F."`
+  - `evidence`: `"Analyzed substantive technical prose; detected 10 corporate buzzwords against 0 quantified metrics (buzzword saturation: 27.0%). High risk of AI summarizer dropout per Appendix F."`
 
 #### B. Good Pattern (Substantive Proposition Density)
 ```html

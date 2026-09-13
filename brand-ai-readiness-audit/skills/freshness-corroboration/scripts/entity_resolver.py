@@ -54,7 +54,7 @@ def evaluate_entity(html: str, jsonld_blocks: list) -> list:
             "id": "F-FRESH-004",
             "title": "Lacks cross-web entity corroboration (sameAs links)",
             "severity": "medium",
-            "evidence": "[Confidence: 94%] Audited on-site knowledge graph bridge posture (offline sandbox boundary: external registries such as Wikidata/Crunchbase are not queried live). Found 0 sameAs outbound links or authoritative entity anchors (Wikidata, LinkedIn, Crunchbase, GitHub) in structured data or DOM markup.",
+            "evidence": "Audited on-site knowledge graph bridge posture (offline sandbox boundary: external registries such as Wikidata/Crunchbase are not queried live). Found 0 sameAs outbound links or authoritative entity anchors (Wikidata, LinkedIn, Crunchbase, GitHub) in structured data or DOM markup.",
             "suggested_action": {
                 "summary": "Anchor the brand identity by linking official profiles (LinkedIn, Crunchbase, Wikidata, GitHub) inside schema sameAs properties.",
                 "priority": "medium"
@@ -107,7 +107,7 @@ def evaluate_entity(html: str, jsonld_blocks: list) -> list:
                 "id": "F-FRESH-008",
                 "title": "High LLM Hallucination Risk: Generic brand identifier lacks on-site entity disambiguation (Appendix D)",
                 "severity": "medium",
-                "evidence": f"[Confidence: 90%] Audited on-site knowledge graph bridge posture under offline sandbox constraints. Brand identifier '{clean_brand.capitalize()}' carries high semantic polysemy in LLM parametric memory, yet page lacks Schema.org legalName, disambiguatingDescription, and multi-registry sameAs anchors. High risk of mistaken identity per Appendix D.",
+                "evidence": f"Audited on-site knowledge graph bridge posture under offline sandbox constraints. Brand identifier '{clean_brand.capitalize()}' carries high semantic polysemy in LLM parametric memory, yet page lacks Schema.org legalName, disambiguatingDescription, and multi-registry sameAs anchors. High risk of mistaken identity per Appendix D.",
                 "suggested_action": {
                     "summary": "Inject Schema.org legalName, specialized @type, and disambiguatingDescription alongside verified sameAs registry links to resolve brand ambiguity in LLM parametric memory.",
                     "priority": "medium"

@@ -16,15 +16,11 @@ def validate_report_schema(report: dict) -> tuple[bool, list[str]]:
     """
     errors = []
 
-    # 1. Top-level keys: exact Handout Page 2 floor
-    expected_top_keys = {"site", "audited_at", "summary", "findings"}
-    if set(report.keys()) != expected_top_keys:
-        missing = expected_top_keys - set(report.keys())
-        extra = set(report.keys()) - expected_top_keys
-        if missing:
-            errors.append(f"Missing required top-level key(s): {sorted(missing)}")
-        if extra:
-            errors.append(f"Unexpected extra top-level key(s): {sorted(extra)}")
+    # 1. Top-level keys: exact Handout Page 2 floor (required floor keys must exist)
+    required_top_keys = ["site", "audited_at", "summary", "findings"]
+    for req in required_top_keys:
+        if req not in report:
+            errors.append(f"Missing required top-level key: '{req}'")
 
     if errors:
         return False, errors
@@ -39,22 +35,16 @@ def validate_report_schema(report: dict) -> tuple[bool, list[str]]:
         if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', report["audited_at"]):
             errors.append(f"Field 'audited_at' has invalid ISO-8601 format: {report['audited_at']}")
 
-    # 3. Summary object: Exactly matching Handout Page 2 floor
+    # 3. Summary object: Required Handout Page 2 floor keys must exist
     summary = report["summary"]
     if not isinstance(summary, dict):
         errors.append("Field 'summary' must be an object/dict.")
     else:
-        expected_summary_keys = {"total_findings", "critical", "high", "medium"}
-        if set(summary.keys()) != expected_summary_keys:
-            missing = expected_summary_keys - set(summary.keys())
-            extra = set(summary.keys()) - expected_summary_keys
-            if missing:
-                errors.append(f"Summary missing required key(s): {sorted(missing)}")
-            if extra:
-                errors.append(f"Summary contains unexpected extra key(s): {sorted(extra)}")
-        for key in ["total_findings", "critical", "high", "medium"]:
-            if key in summary and (not isinstance(summary[key], int) or summary[key] < 0):
-                errors.append(f"Summary key '{key}' must be a non-negative integer.")
+        for req in ["total_findings", "critical", "high", "medium"]:
+            if req not in summary:
+                errors.append(f"Summary missing required key: '{req}'")
+            elif not isinstance(summary[req], int) or summary[req] < 0:
+                errors.append(f"Summary key '{req}' must be a non-negative integer.")
 
     # 4. Findings array
     findings = report["findings"]

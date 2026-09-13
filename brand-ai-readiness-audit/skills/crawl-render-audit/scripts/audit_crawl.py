@@ -80,7 +80,10 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
             return False, f"Explicitly permitted by 'User-agent: {bot}' Allow: /"
         if "/" in disallows or ("" in disallows and len(disallows) == 1):
             return True, f"Explicitly blocked by 'User-agent: {bot}' Disallow: /"
-        return False, "Specific record does not disallow root"
+        dis_paths = [d for d in disallows if d]
+        if dis_paths:
+            return True, f"Blocked on path(s) ({', '.join(dis_paths[:3])}) by 'User-agent: {bot}'"
+        return False, "Specific record does not disallow root or indexed paths"
 
     # 2. Fall back to wildcard *
     if "*" in records:
@@ -91,10 +94,13 @@ def is_bot_blocked(bot: str, records: dict) -> tuple[bool, str]:
             return False, "Wildcard (*) explicitly allows root"
         if "/" in disallows:
             return True, "Blocked by wildcard 'User-agent: *' Disallow: /"
+        dis_paths = [d for d in disallows if d]
+        if dis_paths:
+            return True, f"Blocked on path(s) ({', '.join(dis_paths[:3])}) by wildcard '*'"
 
     return False, "Default-allowed under RFC 9309"
 
-def audit_crawl(bundle: dict) -> list:
+def audit_crawl(bundle: dict) -> list[dict]:
     """Execute all crawl-render checks on the fetched site bundle."""
     findings = []
     html = bundle.get("html", "")
@@ -111,7 +117,7 @@ def audit_crawl(bundle: dict) -> list:
             "id": "F-CRAWL-001",
             "title": "Target website unreachable or blocking connections",
             "severity": "critical",
-            "evidence": f"[Confidence: 98%] Connection probe failed with status: {err}.",
+            "evidence": f"Connection probe failed with status: {err}.",
             "suggested_action": {
                 "summary": "Ensure the origin server is online, accessible over HTTPS, and does not block automated requests.",
                 "priority": "critical"
@@ -125,7 +131,7 @@ def audit_crawl(bundle: dict) -> list:
             "id": "F-CRAWL-002",
             "title": "AI crawler user-agents selectively blocked at network layer",
             "severity": "critical",
-            "evidence": f"[Confidence: 96%] Dual-probe discrepancy: Browser UA succeeded (HTTP 200) while GPTBot UA received HTTP {bot_status}.",
+            "evidence": f"Dual-probe discrepancy: Browser UA succeeded (HTTP 200) while GPTBot UA received HTTP {bot_status}.",
             "suggested_action": {
                 "summary": "Whitelist verified AI assistant IP ranges and user-agents in your WAF / Cloudflare configuration.",
                 "priority": "critical"
@@ -150,7 +156,7 @@ def audit_crawl(bundle: dict) -> list:
                 "id": "F-CRAWL-003",
                 "title": "Robots.txt blocks AI assistant crawlers",
                 "severity": "critical" if is_gpt_blocked else "high",
-                "evidence": f"[Confidence: 97%] RFC 9309 evaluation identified {len(blocked_bots)} blocked AI crawler(s): {', '.join(blocked_bots)}.",
+                "evidence": f"RFC 9309 evaluation identified {len(blocked_bots)} blocked AI crawler(s): {', '.join(blocked_bots)}.",
                 "suggested_action": {
                     "summary": "Update robots.txt to permit indexing by conversational AI crawlers (GPTBot, ClaudeBot, PerplexityBot) on public content paths.",
                     "priority": "critical" if is_gpt_blocked else "high"
@@ -162,7 +168,7 @@ def audit_crawl(bundle: dict) -> list:
                 "id": "F-CRAWL-004",
                 "title": "Missing robots.txt file",
                 "severity": "medium",
-                "evidence": "[Confidence: 95%] HTTP GET /robots.txt returned 404 or empty content.",
+                "evidence": "HTTP GET /robots.txt returned 404 or empty content.",
                 "suggested_action": {
                     "summary": "Deploy a standard robots.txt declaring explicit permissions for AI search bots and linking your sitemap.",
                     "priority": "medium"
@@ -190,7 +196,7 @@ def audit_crawl(bundle: dict) -> list:
             "id": "F-CRAWL-005",
             "title": "Robots meta tags prohibit AI ingestion or indexing",
             "severity": "critical" if any("noindex" in r for r in restrictions) else "high",
-            "evidence": f"[Confidence: 96%] Detected restrictive tags: {', '.join(restrictions)}.",
+            "evidence": f"Detected restrictive tags: {', '.join(restrictions)}.",
             "suggested_action": {
                 "summary": "Remove noindex, noai, or noimageai directives from public indexable landing pages.",
                 "priority": "high"
@@ -211,7 +217,7 @@ def audit_crawl(bundle: dict) -> list:
             "id": "F-CRAWL-006",
             "title": "Client-Side Rendering (CSR) barrier locks content from AI crawlers",
             "severity": "critical",
-            "evidence": f"[Confidence: 95%] Raw HTML contains empty mount root (<div id='root'>) and only {word_count} visible text words without JS execution.",
+            "evidence": f"Raw HTML contains empty mount root (<div id='root'>) and only {word_count} visible text words without JS execution.",
             "suggested_action": {
                 "summary": "Implement Server-Side Rendering (SSR) or Static Site Generation (SSG) so search crawlers receive pre-rendered HTML without executing client JavaScript bundles.",
                 "priority": "critical"
@@ -222,7 +228,7 @@ def audit_crawl(bundle: dict) -> list:
             "id": "F-CRAWL-007",
             "title": "Low static HTML content volume",
             "severity": "medium",
-            "evidence": f"[Confidence: 92%] Page contains only {word_count} words of readable text in static HTML payload.",
+            "evidence": f"Page contains only {word_count} words of readable text in static HTML payload.",
             "suggested_action": {
                 "summary": "Ensure key brand descriptions, value propositions, and FAQs are embedded directly in static HTML rather than fetched asynchronously via client-side APIs.",
                 "priority": "medium"
@@ -237,7 +243,7 @@ def audit_crawl(bundle: dict) -> list:
             "id": "F-CRAWL-008",
             "title": "No XML Sitemap found or referenced",
             "severity": "medium",
-            "evidence": "[Confidence: 93%] Neither /sitemap.xml was accessible nor was a Sitemap: directive declared in robots.txt.",
+            "evidence": "Neither /sitemap.xml was accessible nor was a Sitemap: directive declared in robots.txt.",
             "suggested_action": {
                 "summary": "Generate an automated sitemap.xml listing all canonical pages and declare its URL in robots.txt.",
                 "priority": "medium"

@@ -59,7 +59,7 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
             "id": "F-PROACT-001",
             "title": "[Proactive Opportunity] Deploy /llms.txt manifest for discovered documentation assets",
             "severity": "medium",
-            "evidence": f"[Confidence: 93%] Discovered {len(doc_links)} documentation/API route(s) (e.g. '{doc_links[0]}'), but no /llms.txt file exists at origin root to guide AI inference engines.",
+            "evidence": f"Discovered {len(doc_links)} documentation/API route(s) (e.g. '{doc_links[0]}'), but no /llms.txt file exists at origin root to guide AI inference engines.",
             "suggested_action": {
                 "summary": (
                     f"Deploy this turnkey /llms.txt manifest at your website root to index your {len(doc_links)} documentation routes for instant frontier model ingestion:\n\n"
@@ -100,7 +100,7 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
             "id": "F-PROACT-002",
             "title": "[Proactive Opportunity] Structure discovered Q&A content into FAQPage JSON-LD",
             "severity": "medium",
-            "evidence": f"[Confidence: 91%] Detected {len(question_matches)} natural question(s) in body copy (e.g. '{sample_q}'), but page lacks structured FAQPage markup.",
+            "evidence": f"Detected {len(question_matches)} natural question(s) in body copy (e.g. '{sample_q}'), but page lacks structured FAQPage markup.",
             "suggested_action": {
                 "summary": (
                     f"Embed this pre-populated Schema.org FAQPage snippet in your HTML <head> to enable zero-shot answer extraction in Perplexity and ChatGPT Search:\n\n"
@@ -136,7 +136,7 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
             "id": "F-PROACT-003",
             "title": "[Proactive Opportunity] Bridge commercial brand entity to Knowledge Graph registries",
             "severity": "medium",
-            "evidence": "[Confidence: 90%] Commercial product/pricing signals detected, but no Schema.org sameAs links ground the brand to external knowledge graph registries.",
+            "evidence": "Commercial product/pricing signals detected, but no Schema.org sameAs links ground the brand to external knowledge graph registries.",
             "suggested_action": {
                 "summary": (
                     f"Anchor the brand identity across LLM parametric memory by embedding this Schema.org Organization template with populated sameAs URIs:\n\n"
@@ -163,7 +163,7 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
                 "id": "F-PROACT-004",
                 "title": "[Proactive Opportunity] Add semantic anchor IDs to key sections for direct AI citations",
                 "severity": "medium",
-                "evidence": f"[Confidence: 92%] Found {len(subheadings)} section headings, but only {anchored_count} ({pct_anchored:.0f}%) possess HTML id attributes; conversational AI agents cannot deep-link users directly to cited claims.",
+                "evidence": f"Found {len(subheadings)} section headings, but only {anchored_count} ({pct_anchored:.0f}%) possess HTML id attributes; conversational AI agents cannot deep-link users directly to cited claims.",
                 "suggested_action": {
                     "summary": (
                         f"Attach persistent semantic id attributes to your {len(subheadings)} section headers so AI assistants can cite and deep-link directly to factual claims:\n\n"

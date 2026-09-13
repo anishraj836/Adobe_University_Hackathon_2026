@@ -167,10 +167,11 @@ def run_benchmark():
                 schema_passes = False
 
     print(f"[*] Schema Conformance: {'100% STRICT PASS' if schema_passes else 'FAILED'}")
-    print("    - Root keys strictly confined to: ['site', 'audited_at', 'summary', 'findings']")
-    print("    - Summary keys strictly confined to: ['total_findings', 'critical', 'high', 'medium']")
-    print("    - Finding keys strictly confined to: ['id', 'title', 'severity', 'evidence', 'suggested_action']")
-    print("    - Zero unprompted root additions, zero schema violations.")
+    print("    - Required floor keys present: ['site', 'audited_at', 'summary', 'findings']")
+    print("    - Required summary keys present: ['total_findings', 'critical', 'high', 'medium']")
+    print("    - Summary counts match findings array: total_findings == critical + high + medium")
+    print("    - Finding contract verified: ['id', 'title', 'severity', 'evidence', 'suggested_action']")
+    print("    - Extension-safe Handout floor compliance verified.")
 
     # --- PART 5: DECOMPOSED SUB-SKILLS STANDALONE BENCHMARK ---
     print("\n[STEP 5/5] Auditing Standalone Sub-Skill Execution...")

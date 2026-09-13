@@ -59,5 +59,5 @@ def evaluate_filler(html: str) -> dict:
         "fluff_count": fluff_count,
         "quant_matches": quant_matches,
         "fluff_ratio": fluff_ratio,
-        "evidence": f"[Confidence: 91%] Analyzed substantive technical prose; detected {fluff_count} corporate buzzwords against {quant_matches} quantified metrics (buzzword saturation: {fluff_ratio:.1f}%). High risk of AI summarizer dropout per Appendix F."
+        "evidence": f"Analyzed substantive technical prose; detected {fluff_count} corporate buzzwords against {quant_matches} quantified metrics (buzzword saturation: {fluff_ratio:.1f}%). High risk of AI summarizer dropout per Appendix F."
     }

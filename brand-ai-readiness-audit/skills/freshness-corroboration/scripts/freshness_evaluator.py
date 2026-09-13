@@ -73,7 +73,7 @@ def evaluate_freshness(html: str, headers: dict, jsonld_blocks: list) -> list:
                 "id": "F-FRESH-005",
                 "title": "Stale temporal signals (> 1 year since content update)",
                 "severity": "medium",
-                "evidence": f"[Confidence: 92%] Most recent verified timestamp is {most_recent.strftime('%Y-%m-%d')} ({age_days} days old).",
+                "evidence": f"Most recent verified timestamp is {most_recent.strftime('%Y-%m-%d')} ({age_days} days old).",
                 "suggested_action": {
                     "summary": "Update page content and publish fresh dateModified timestamps in JSON-LD to prevent AI assistants from deprecating citation confidence.",
                     "priority": "medium"
@@ -84,7 +84,7 @@ def evaluate_freshness(html: str, headers: dict, jsonld_blocks: list) -> list:
             "id": "F-FRESH-006",
             "title": "Missing explicit temporal metadata",
             "severity": "medium",
-            "evidence": "[Confidence: 94%] No datePublished, dateModified, or HTTP Last-Modified timestamps found across headers or markup.",
+            "evidence": "No datePublished, dateModified, or HTTP Last-Modified timestamps found across headers or markup.",
             "suggested_action": {
                 "summary": "Expose ISO-8601 dateModified in structured data and configure web server to return Last-Modified headers.",
                 "priority": "medium"

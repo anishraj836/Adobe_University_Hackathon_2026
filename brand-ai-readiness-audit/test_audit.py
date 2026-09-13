@@ -273,20 +273,25 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         valid, errs = validate_report_schema(valid_report)
         self.assertTrue(valid, f"Valid report failed: {errs}")
 
-        # Unexpected extra top-level key must fail
-        extra_top = dict(valid_report)
-        extra_top["extra_meta"] = "invalid"
-        valid, errs = validate_report_schema(extra_top)
+        # Missing required floor key must fail
+        missing_top = dict(valid_report)
+        del missing_top["summary"]
+        valid, errs = validate_report_schema(missing_top)
         self.assertFalse(valid)
-        self.assertTrue(any("Unexpected extra top-level key" in e for e in errs))
+        self.assertTrue(any("Missing required top-level key" in e for e in errs))
 
-        # Unexpected extra summary key must fail
-        extra_sum = dict(valid_report)
-        extra_sum["summary"] = dict(valid_report["summary"])
-        extra_sum["summary"]["low"] = 0
-        valid, errs = validate_report_schema(extra_sum)
+        # Missing summary floor key must fail
+        missing_sum = dict(valid_report)
+        missing_sum["summary"] = {"total_findings": 1, "critical": 1, "high": 0} # missing 'medium'
+        valid, errs = validate_report_schema(missing_sum)
         self.assertFalse(valid)
-        self.assertTrue(any("unexpected extra key" in e for e in errs))
+        self.assertTrue(any("Summary missing required key" in e for e in errs))
+
+        # Extension fields are allowed per handout spec ("floor, not a ceiling")
+        ext_report = dict(valid_report)
+        ext_report["crawl_duration_ms"] = 14.2
+        valid, errs = validate_report_schema(ext_report)
+        self.assertTrue(valid, f"Extension field rejected contrary to floor spec: {errs}")
 
 if __name__ == "__main__":
     unittest.main()
