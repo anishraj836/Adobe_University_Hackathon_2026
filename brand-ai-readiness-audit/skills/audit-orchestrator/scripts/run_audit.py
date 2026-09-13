@@ -54,7 +54,7 @@ def build_markdown_report(report: dict) -> str:
 
     return "\n".join(md)
 
-def run_audit(target: str) -> dict:
+def run_audit(target: str, explain: bool = False) -> dict:
     """Execute end-to-end brand AI-readiness audit."""
     sys.stderr.write(f"[*] Initiating Brand AI-Readiness Audit for: {target}\n")
 
@@ -74,6 +74,8 @@ def run_audit(target: str) -> dict:
     # 3. Step 1: Crawl & Render Audit
     crawl_findings = audit_crawl(bundle)
     raw_findings.extend(crawl_findings)
+    if explain:
+        sys.stderr.write(f"[explain] Crawl & render audit: {len(crawl_findings)} finding(s) detected.\n")
 
     # 4. Causal Error Shielding
     # If the site is completely unreachable or blocked at network layer, suppress downstream false positives
@@ -82,32 +84,40 @@ def run_audit(target: str) -> dict:
         # Step 2: Freshness & Corroboration Audit
         fresh_findings = audit_freshness(bundle)
         raw_findings.extend(fresh_findings)
+        if explain:
+            sys.stderr.write(f"[explain] Freshness & corroboration audit: {len(fresh_findings)} finding(s) detected.\n")
 
         # Step 3: Engagement & Friction Audit
         engage_findings = audit_engagement(bundle)
         raw_findings.extend(engage_findings)
+        if explain:
+            sys.stderr.write(f"[explain] Engagement & user journey audit: {len(engage_findings)} finding(s) detected.\n")
 
         # Step 4: Conditioned Proactive Opportunities Engine
         existing_ids = {f.get("id") for f in raw_findings}
         proactive_findings = generate_proactive_actions(bundle, existing_ids)
         raw_findings.extend(proactive_findings)
+        if explain:
+            sys.stderr.write(f"[explain] Turnkey proactive actions: {len(proactive_findings)} drop-in code fix(es) synthesized.\n")
     else:
         sys.stderr.write("[!] Target is unreachable/blocked; activating causal error shielding.\n")
+        if explain:
+            sys.stderr.write("[explain] Causal shielding: suppressed downstream freshness and engagement checks to eliminate cascade false positives.\n")
 
     # 5. Format and re-index findings strictly adhering to Handout Page 2 sample
     ordered_findings = []
-    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 2}
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     raw_findings.sort(key=lambda x: severity_order.get(x.get("severity", "medium"), 9))
 
     severity_counts = {"critical": 0, "high": 0, "medium": 0}
 
     for idx, f in enumerate(raw_findings, start=1):
         raw_sev = f.get("severity", "medium").lower()
-        # Map low to medium to guarantee total_findings == critical + high + medium per Handout floor
-        sev = "medium" if raw_sev == "low" else raw_sev
-        if sev not in severity_counts:
-            sev = "medium"
-        severity_counts[sev] += 1
+        sev = raw_sev if raw_sev in {"critical", "high", "medium", "low"} else "medium"
+        # Preserve 'low' on finding object; map to 'medium' in summary tally to guarantee
+        # Handout floor contract (total_findings == critical + high + medium)
+        tally_sev = "medium" if sev == "low" else sev
+        severity_counts[tally_sev] += 1
 
         ordered_findings.append({
             "id": f"F-{idx:03d}",
@@ -150,6 +160,7 @@ def main():
     parser.add_argument("--fixture", dest="fixture", default=None, help="Path to local fixture directory or file")
     parser.add_argument("--format", dest="format", choices=["json", "markdown"], default="json", help="Output format (default: json)")
     parser.add_argument("--output", dest="output", default=None, help="Write output to file instead of stdout")
+    parser.add_argument("--explain", "--verbose", dest="explain", action="store_true", help="Print detailed diagnostic decisions and scope-gate telemetry to stderr")
 
     args = parser.parse_args()
     target = args.fixture or args.url or args.target
@@ -158,7 +169,7 @@ def main():
         parser.print_help(file=sys.stderr)
         sys.exit(1)
 
-    report = run_audit(target)
+    report = run_audit(target, explain=args.explain)
 
     if args.format == "markdown":
         output_str = build_markdown_report(report)

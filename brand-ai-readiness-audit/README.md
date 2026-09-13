@@ -94,6 +94,9 @@ python3 skills/audit-orchestrator/scripts/run_audit.py fixtures/blocked_site
 
 # 4. Save output to a file
 python3 skills/audit-orchestrator/scripts/run_audit.py https://example.com --output audit_report.json
+
+# 5. Explain mode (telemetry and scope-gate decisions printed to stderr)
+python3 skills/audit-orchestrator/scripts/run_audit.py https://example.com --explain
 ```
 
 ### Running Autonomous Sub-Skills Standalone
@@ -103,15 +106,40 @@ python3 skills/freshness-corroboration/scripts/audit_freshness.py https://exampl
 python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 ```
 
-### Running the Test Suite
+### Running the Test & Benchmark Suites
 ```bash
+# Automated regression unit tests (14 tests in ~0.03s)
 python3 test_audit.py
+
+# Full 5-step benchmark scorecard (latency percentiles, ground truth accuracy)
+python3 benchmark_suite.py
 ```
-*Low-overhead bounded execution: sub-second offline processing (~0.02s typical), bounded stream fetching live.*
+*Low-overhead bounded execution: sub-second offline processing (~0.002s typical), bounded stream fetching live.*
 
 ---
 
-## 4. Output Schema Parity (Handout Page 2)
+## 4. Anti-False-Positive Safeguards & Scope Gates
+
+To prevent alert fatigue and eliminate false positives on legitimate web patterns, every heuristic is bounded by explicit scope gates:
+- **Commercial Intent Scope Gate (`conversion_evaluator.py`)**: Gated by `has_commercial_intent()` (detecting pricing, SaaS signup, demo, or transactional pathways). Developer documentation, open-source libraries, and personal portfolios are never penalized for missing "Book Demo" buttons or SOC2 badges.
+- **Hero-Zone Exemption (`filler_evaluator.py`)**: Emotional branding and punchy headlines in top-level hero zones (`class="hero"`, `<header>`) are explicitly exempt from Lexical Density Ratio (LDR) fluff penalties.
+- **Narrative Container Scope Gate (`quotability_evaluator.py`)**: Sliding-window quotation analysis operates strictly on substantive narrative elements (`<main>`, `<article>`, `<section>`), ignoring navigation trees, footers, and sidebars.
+- **Polysemy Dictionary Gating (`entity_resolver.py`)**: Homonym ambiguity warnings fire only when the brand name matches a verified dictionary word (`references/polysemy_dictionary.json`) AND lacks Schema.org `legalName`, `disambiguatingDescription`, or `sameAs` knowledge graph links.
+- **Causal Error Shielding (`run_audit.py`)**: If network-layer blocks or AI crawler bans are identified at the origin, downstream content and schema checks are shielded rather than emitting cascading false positives.
+
+---
+
+## 5. Known Scope Boundaries & Design Trade-offs
+
+In strict adherence to the hackathon's < 5-minute runtime and zero-external-dependency constraints:
+- **Static DOM vs. Heavy Headless Browser**: Pure Client-Side Rendered (CSR) SPAs are flagged statically by detecting empty mount roots (`#root`, `#app`) and JS script bundles without running a 300MB Chromium/Playwright instance.
+- **Offline Knowledge Graph Posture**: External entity registries (Wikidata, Crunchbase) are audited via the brand's on-site knowledge graph bridge (`sameAs` links) rather than making outbound live SPARQL queries during offline evaluation.
+- **Conjunctive Freshness & Drift**: Content is only flagged as stale when all available signals agree ($\max(\text{dates}) < \text{now} - 365\text{ days}$). Conflicting signals (> 180 days drift between headers and markup) are flagged as temporal divergence (`F-FRESH-007`). See `skills/freshness-corroboration/references/freshness_design_decisions.md`.
+- **Live Empirical Validation**: See `references/live_validation.md` for live audit transcripts on production websites (`example.com`, `httpbin.org`, `python.org`).
+
+---
+
+## 6. Output Schema Parity (Handout Page 2)
 
 ```json
 {
