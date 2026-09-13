@@ -73,6 +73,24 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
                 "priority": "medium"
             }
         })
+    elif h1_matches:
+        desc_text = meta_desc_match.group(1).strip()
+        h1_clean = re.sub(r'<[^>]+>', '', h1_matches[0]).strip().lower()
+        h1_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', h1_clean) if w not in stopwords}
+        desc_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', desc_text.lower()) if w not in stopwords}
+        if h1_tokens and desc_tokens:
+            common = h1_tokens.intersection(desc_tokens)
+            if not common and len(h1_tokens) >= 2 and len(desc_tokens) >= 5:
+                findings.append({
+                    "id": "F-ENGAGE-009",
+                    "title": "Cognitive mismatch between primary <h1> and meta description",
+                    "severity": "medium",
+                    "evidence": f"0 shared topical keywords between headline ('{h1_clean[:50]}') and meta description ('{desc_text[:60]}...'). Arriving AI referrals experience immediate cognitive disconnect.",
+                    "suggested_action": {
+                        "summary": "Align primary <h1> messaging with the meta description so visitors referred by conversational AI recognize the proposition immediately.",
+                        "priority": "medium"
+                    }
+                })
 
     # Mobile viewport meta tag check
     viewport_match = re.search(r'<meta\s+name=["\']viewport["\']\s+content=["\']([^"\']+)["\']', html, re.I)

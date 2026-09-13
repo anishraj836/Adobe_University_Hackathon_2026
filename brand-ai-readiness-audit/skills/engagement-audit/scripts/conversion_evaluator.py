@@ -193,8 +193,11 @@ def check_support_faq_paths(html: str) -> tuple[bool, str]:
 def evaluate_conversion(html: str) -> list[dict]:
     """
     Evaluate user journey and conversion friction.
-    Returns findings if a page lacks next-step conversion pathways or trust signals.
+    Only evaluates pages carrying commercial / product intent to prevent false-positive warnings on blogs/docs.
     """
+    if not has_commercial_intent(html):
+        return []
+
     findings = []
 
     has_cta, cta_detail = check_primary_cta(html)

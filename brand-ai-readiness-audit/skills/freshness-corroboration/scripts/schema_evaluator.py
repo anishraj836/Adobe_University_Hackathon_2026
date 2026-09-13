@@ -8,8 +8,20 @@ producing quantified multi-page evidence matching Handout Page 2 specifications.
 import json
 import re
 
+def _flatten_jsonld(node) -> list:
+    """Recursively unwrap JSON-LD items, lists, and @graph containers."""
+    flat = []
+    if isinstance(node, list):
+        for item in node:
+            flat.extend(_flatten_jsonld(item))
+    elif isinstance(node, dict):
+        flat.append(node)
+        if "@graph" in node:
+            flat.extend(_flatten_jsonld(node["@graph"]))
+    return flat
+
 def extract_jsonld_blocks(html: str) -> tuple[list, list]:
-    """Extract and parse all JSON-LD script blocks. Returns (valid_blocks, parse_errors)."""
+    """Extract and parse all JSON-LD script blocks, unwrapping @graph containers. Returns (valid_blocks, parse_errors)."""
     blocks = []
     errors = []
     pattern = r'<script\s+[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>'
@@ -21,10 +33,7 @@ def extract_jsonld_blocks(html: str) -> tuple[list, list]:
             continue
         try:
             data = json.loads(cleaned)
-            if isinstance(data, list):
-                blocks.extend(data)
-            else:
-                blocks.append(data)
+            blocks.extend(_flatten_jsonld(data))
         except json.JSONDecodeError as e:
             errors.append(f"Block {idx+1}: {str(e)[:100]}")
     return blocks, errors

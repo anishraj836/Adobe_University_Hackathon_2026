@@ -48,14 +48,21 @@ def extract_dates(html: str, headers: dict, jsonld_blocks: list) -> list[datetim
         except ValueError:
             pass
 
-    # 4. HTTP Last-Modified header
+    # 4. HTTP Last-Modified header (RFC 7231 / RFC 2822 / RFC 850 compliant parsing)
     last_mod = headers.get("last-modified")
     if last_mod:
         try:
-            dt = datetime.strptime(last_mod[:16], "%a, %d %b %Y").replace(tzinfo=timezone.utc)
+            import email.utils
+            dt = email.utils.parsedate_to_datetime(last_mod)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
             found_dates.append(dt)
-        except ValueError:
-            pass
+        except Exception:
+            try:
+                dt = datetime.strptime(last_mod[:16], "%a, %d %b %Y").replace(tzinfo=timezone.utc)
+                found_dates.append(dt)
+            except Exception:
+                pass
 
     return found_dates
 

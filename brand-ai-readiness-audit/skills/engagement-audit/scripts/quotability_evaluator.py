@@ -74,7 +74,7 @@ def evaluate_quotability(html: str, brand_hint: str = "") -> dict:
             if real_dangling:
                 dangling_count += 1
 
-    aqs = int(((len(chunks) - dangling_count) / len(chunks)) * 100)
+    aqs = max(0, min(100, int(((len(chunks) - dangling_count) / len(chunks)) * 100)))
     flagged = aqs < 50 and dangling_count >= 2
 
     return {

@@ -159,15 +159,18 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
     def test_10_conversion_friction_evaluation(self):
         from conversion_evaluator import evaluate_conversion
 
-        # 1. Page with zero CTAs, zero trust proof, zero commercial routes, and zero FAQ paths
+        # 1. Unconverted commercial / SaaS product page (triggers all 4 friction findings)
         friction_html = """
         <!DOCTYPE html>
         <html>
-        <head><title>Unconverted Informational Page</title></head>
+        <head>
+          <title>Enterprise Cloud Platform</title>
+          <meta name="description" content="High performance cloud software platform for enterprise teams.">
+        </head>
         <body>
           <main>
-            <h1>Distributed Cache Architecture</h1>
-            <p>Our distributed cache provides sub-millisecond key-value storage across multiple cloud regions.</p>
+            <h1>Distributed Cache Platform</h1>
+            <p>Our enterprise cloud platform provides sub-millisecond key-value storage across multiple cloud regions.</p>
           </main>
         </body>
         </html>
@@ -180,7 +183,23 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertIn("F-ENGAGE-013", finding_ids)
         self.assertIn("F-ENGAGE-014", finding_ids)
 
-        # 2. Page with clear CTA, SOC2 certification, /pricing route, and FAQPage structured data
+        # 2. Non-commercial personal blog / recipe page: MUST return 0 friction findings (Anti-false-positive scope gate)
+        blog_html = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Traditional Pasta Recipe</title></head>
+        <body>
+          <article>
+            <h1>How to make fresh tagliatelle</h1>
+            <p>Combine 200g of flour with two eggs and knead for ten minutes until silky.</p>
+          </article>
+        </body>
+        </html>
+        """
+        blog_findings = evaluate_conversion(blog_html)
+        self.assertEqual(len(blog_findings), 0, "Non-commercial editorial pages must NOT trigger commercial friction warnings")
+
+        # 3. Page with clear CTA, SOC2 certification, /pricing route, and FAQPage structured data
         converted_html = """
         <!DOCTYPE html>
         <html>

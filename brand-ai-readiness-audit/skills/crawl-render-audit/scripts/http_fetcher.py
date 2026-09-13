@@ -179,8 +179,21 @@ def fetch_url(url: str, user_agent: str = BROWSER_UA, timeout: int = 6) -> dict:
                 "error": str(inner_e or e)
             }
 
+def _rfc9309_pattern_matches(pattern: str, path: str) -> bool:
+    """Check if path matches RFC 9309 robots.txt pattern (supporting * wildcards and $ end-anchors)."""
+    if not pattern:
+        return False
+    try:
+        has_end_anchor = pattern.endswith("$")
+        clean = pattern[:-1] if has_end_anchor else pattern
+        escaped = re.escape(clean).replace(r"\*", ".*")
+        regex_str = "^" + escaped + ("$" if has_end_anchor else "")
+        return bool(re.search(regex_str, path))
+    except Exception:
+        return path.startswith(pattern)
+
 def is_path_allowed_by_robots(path: str, robots_text: str, user_agent: str = "*") -> bool:
-    """RFC 9309 check: verify if a path is allowed by robots.txt before crawling."""
+    """RFC 9309 check: verify if a path is allowed by robots.txt before crawling (supporting * and $)."""
     if not robots_text:
         return True
     lines = robots_text.splitlines()
@@ -194,11 +207,11 @@ def is_path_allowed_by_robots(path: str, robots_text: str, user_agent: str = "*"
             applies = (agent == user_agent.lower() or agent == "*")
         elif applies and line.lower().startswith("disallow:"):
             dis_path = line.split(":", 1)[1].strip()
-            if dis_path and path.startswith(dis_path):
+            if dis_path and _rfc9309_pattern_matches(dis_path, path):
                 return False
         elif applies and line.lower().startswith("allow:"):
             allow_path = line.split(":", 1)[1].strip()
-            if allow_path and path.startswith(allow_path):
+            if allow_path and _rfc9309_pattern_matches(allow_path, path):
                 return True
     return True
 
