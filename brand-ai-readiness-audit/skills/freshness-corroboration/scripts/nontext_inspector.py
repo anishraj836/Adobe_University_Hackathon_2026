@@ -19,8 +19,16 @@ def inspect_nontext(html: str) -> list:
         if re.search(r'role=["\'](?:presentation|none)["\']', img, re.I) or re.search(r'aria-hidden=["\']true["\']', img, re.I):
             continue
 
-        informative_imgs += 1
         alt_match = re.search(r'alt=["\']([^"\']*)["\']', img, re.I)
+        src_match = re.search(r'src=["\']([^"\']*)["\']', img, re.I)
+        src = src_match.group(1).lower() if src_match else ""
+        is_substantive_diagram = bool(re.search(r'(diagram|chart|infographic|architecture|topology|flowchart|benchmark|screenshot)', src))
+
+        # Under WCAG 2.1, explicit empty alt="" denotes a decorative graphic unless it's an informative diagram asset
+        if alt_match and alt_match.group(1).strip() == "" and not is_substantive_diagram:
+            continue
+
+        informative_imgs += 1
         if not alt_match:
             missing_alt_count += 1
         else:

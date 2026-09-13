@@ -27,3 +27,20 @@ Composed of 5 dedicated sub-modules:
 ## Guardrails & Compliance
 - **Recommend-Only**: Passive inspection of rendered static DOM.
 - **Zero Destructive Actions**: Never submits forms, clicks links, or authenticates.
+
+## Output
+Emits a structured list of on-site engagement and conversion friction findings adhering to the finding contract:
+```json
+[
+  {
+    "id": "F-ENGAGE-001",
+    "title": "Missing primary <h1> heading element",
+    "severity": "high",
+    "evidence": "0 <h1> tags found in document body.",
+    "suggested_action": {
+      "summary": "Add a prominent <h1> stating your core brand proposition.",
+      "priority": "high"
+    }
+  }
+]
+```

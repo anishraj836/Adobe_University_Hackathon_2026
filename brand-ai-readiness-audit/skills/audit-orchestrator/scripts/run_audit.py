@@ -138,7 +138,12 @@ def run_audit(target: str, explain: bool = False) -> dict:
         if explain:
             sys.stderr.write("[explain] Causal shielding: suppressed downstream freshness and engagement checks to eliminate cascade false positives.\n")
 
-    # 5. Format and re-index findings strictly adhering to Handout Page 2 sample
+    # 5. Deduplicate overlapping cross-skill root causes (e.g. thin content double-counting)
+    # F-ENGAGE-006 (substantive body prose, high severity) supersedes F-CRAWL-007 (raw HTML text volume)
+    if any(f.get("id") == "F-ENGAGE-006" for f in raw_findings):
+        raw_findings = [f for f in raw_findings if f.get("id") != "F-CRAWL-007"]
+
+    # 6. Format and re-index findings strictly adhering to Handout Page 2 sample
     ordered_findings = []
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     raw_findings.sort(key=lambda x: severity_order.get(x.get("severity", "medium"), 9))

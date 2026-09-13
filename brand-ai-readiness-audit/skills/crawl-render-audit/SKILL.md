@@ -25,5 +25,22 @@ Use when diagnosing why an AI assistant cannot reach, fetch, or render the conte
 
 ## Guardrails & Compliance
 - **Recommend-Only**: Non-destructive, read-only inspection.
-- **RFC 9309 Compliance**: Honors robots.txt disallow directives.
+- **Dual-Probe Inspection & RFC 9309 Compliance**: Conducts a non-destructive initial GET probe to retrieve HTTP response headers and robots.txt, then strictly honors RFC 9309 robots.txt disallow directives for all subsequent subpage crawls.
 - **Timeouts**: Bounded 6-second HTTP timeouts per request.
+
+## Output
+Emits a structured list of crawl-render findings adhering to the finding contract:
+```json
+[
+  {
+    "id": "F-CRAWL-003",
+    "title": "Robots.txt blocks AI citation crawlers from indexing site",
+    "severity": "critical",
+    "evidence": "Robots.txt contains explicit 'Disallow: /' directive for user-agent 'OAI-SearchBot'.",
+    "suggested_action": {
+      "summary": "Update robots.txt to permit verified search and citation crawlers.",
+      "priority": "critical"
+    }
+  }
+]
+```

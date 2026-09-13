@@ -17,13 +17,28 @@ def evaluate_quotability(html: str, brand_hint: str = "") -> dict:
     3. Expletive pronoun filter: Ignores dummy subjects ('It is...', 'It was...').
     4. Conservative threshold: Only flags if >= 2 real dangling chunks and score < 50.
     """
-    main_match = re.search(r'<(main|article)\b[^>]*>(.*?)<\/\1>', html, re.DOTALL | re.IGNORECASE)
-    container_html = main_match.group(0) if main_match else html
-    eval_html = main_match.group(2) if main_match else html
+    # Scope Gate: evaluate all non-narrative <main>, <article>, and substantive <section> containers
+    matches = list(re.finditer(r'<(main|article|section)\b([^>]*)>(.*?)<\/\1>', html, re.DOTALL | re.IGNORECASE))
+    eval_parts = []
+    has_exempted_narrative = False
 
-    # Scope Gate: Exclude narrative/editorial blog containers
-    if re.search(r'\b(founder-letter|personal-story|blog-post|author-bio)\b', container_html, re.I):
-        return {"flagged": False, "score": 100, "evidence": "Narrative container exempted by scope gate."}
+    if matches:
+        for m in matches:
+            tag_attrs = m.group(2)
+            content = m.group(3)
+            if re.search(r'\b(founder-letter|personal-story|blog-post|author-bio)\b', tag_attrs, re.I):
+                has_exempted_narrative = True
+                continue
+            if re.search(r'\b(hero|banner|footer|nav|cookie)\b', tag_attrs, re.I):
+                continue
+            eval_parts.append(content)
+        eval_html = "\n".join(eval_parts) if eval_parts else ""
+        if not eval_html and has_exempted_narrative:
+            return {"flagged": False, "score": 100, "evidence": "Narrative container exempted by scope gate."}
+        if not eval_html:
+            eval_html = html
+    else:
+        eval_html = html
 
     sections = re.split(r'(<h[1-4]\b[^>]*>.*?<\/h[1-4]>)', eval_html, flags=re.I | re.DOTALL)
     current_heading = "General"

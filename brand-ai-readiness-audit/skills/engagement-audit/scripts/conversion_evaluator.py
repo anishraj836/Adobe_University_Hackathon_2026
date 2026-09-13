@@ -31,6 +31,10 @@ DEFAULT_COMMERCIAL_ROUTES = [
     "/shop", "/cart", "/product", "/checkout"
 ]
 
+DEFAULT_OVERLAY_INDICATORS = [
+    "modal", "newsletter-popup", "paywall", "gate", "dialog-overlay"
+]
+
 if os.path.exists(FRICTION_PATTERNS_PATH):
     try:
         with open(FRICTION_PATTERNS_PATH, "r", encoding="utf-8") as f:
@@ -41,6 +45,9 @@ if os.path.exists(FRICTION_PATTERNS_PATH):
             loaded_routes = data.get("commercial_routes", [])
             if loaded_routes:
                 DEFAULT_COMMERCIAL_ROUTES = loaded_routes
+            loaded_overlays = data.get("overlay_indicators", [])
+            if loaded_overlays:
+                DEFAULT_OVERLAY_INDICATORS = loaded_overlays
     except Exception:
         pass
 
@@ -252,6 +259,27 @@ def evaluate_conversion(html: str) -> list[dict]:
             "suggested_action": {
                 "summary": "Implement an easily discoverable FAQ section or support routing to address pre-conversion evaluation questions commonly posed by AI-referred users.",
                 "priority": "medium"
+            }
+        })
+
+    # 5. Interstitial & Paywall Overlay Detection
+    overlays = []
+    for indicator in DEFAULT_OVERLAY_INDICATORS:
+        pattern = rf'<(?:div|section|aside|dialog)\b[^>]*(?:class|id)=["\'][^"\']*\b{indicator}\b[^"\']*["\'][^>]*>'
+        if re.search(pattern, html, re.I):
+            overlays.append(indicator)
+    if re.search(r'aria-modal=["\']true["\']', html, re.I) and "modal" not in overlays:
+        overlays.append("modal")
+
+    if overlays:
+        findings.append({
+            "id": "F-ENGAGE-018",
+            "title": "Intrusive modal or paywall overlay blocks immediate AI referral engagement",
+            "severity": "high",
+            "evidence": f"Detected {len(overlays)} intrusive gating/overlay indicator(s) ({', '.join(set(overlays))}) in initial DOM markup. Arriving AI-referred visitors face immediate interaction friction and high bounce risk.",
+            "suggested_action": {
+                "summary": "Defer full-screen modals, newsletter popups, and gating overlays until user engagement is established, or use non-blocking inline banners so AI-referred users can read content immediately.",
+                "priority": "high"
             }
         })
 

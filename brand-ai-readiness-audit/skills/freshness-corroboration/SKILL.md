@@ -26,3 +26,20 @@ Composed of 4 dedicated sub-modules:
 ## Guardrails & Compliance
 - **Recommend-Only**: Passive analysis only.
 - **Zero External APIs**: 100% offline, deterministic heuristic execution.
+
+## Output
+Emits a structured list of freshness and entity corroboration findings adhering to the finding contract:
+```json
+[
+  {
+    "id": "F-FRESH-005",
+    "title": "Stale temporal signals (> 1 year since content update)",
+    "severity": "medium",
+    "evidence": "All detected temporal channel(s) corroborate content age > 365 days.",
+    "suggested_action": {
+      "summary": "Update page content and publish fresh dateModified timestamps in JSON-LD.",
+      "priority": "medium"
+    }
+  }
+]
+```

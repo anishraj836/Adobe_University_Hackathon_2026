@@ -20,8 +20,21 @@ if os.path.exists(POLYSEMY_PATH):
 
 AUTHORITATIVE_DOMAINS = [
     "wikidata.org", "wikipedia.org", "linkedin.com", "crunchbase.com",
-    "github.com", "x.com", "twitter.com", "google.com/maps"
+    "github.com", "x.com", "twitter.com", "google.com/maps",
+    "maps.google.com", "maps.app.goo.gl", "g.page"
 ]
+
+REGISTRIES_PATH = os.path.join(CURRENT_DIR, "../references/authority_registries.json")
+if os.path.exists(REGISTRIES_PATH):
+    try:
+        with open(REGISTRIES_PATH, "r", encoding="utf-8") as f:
+            regs = json.load(f).get("registries", [])
+            for r in regs:
+                dom = r.get("domain", "")
+                if dom and dom not in AUTHORITATIVE_DOMAINS:
+                    AUTHORITATIVE_DOMAINS.append(dom)
+    except Exception:
+        pass
 
 def _unwrap_blocks(blocks: list) -> list:
     """Recursively unwrap JSON-LD items and nested @graph containers."""

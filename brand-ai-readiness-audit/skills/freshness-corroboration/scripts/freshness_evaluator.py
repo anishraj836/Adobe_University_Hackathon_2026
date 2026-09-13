@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import re
 
 def extract_temporal_signals(html: str, headers: dict, jsonld_blocks: list) -> list[dict]:
-    """Corroborate dates across JSON-LD, meta tags, DOM <time>, and HTTP headers with provenance."""
+    """Corroborate dates across JSON-LD, meta tags, DOM <time>, and HTTP headers with provenance and signal typing."""
     signals = []
 
     # 1. JSON-LD dates
@@ -20,21 +20,24 @@ def extract_temporal_signals(html: str, headers: dict, jsonld_blocks: list) -> l
                     try:
                         clean_val = val[:10]
                         dt = datetime.strptime(clean_val, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-                        signals.append({"channel": f"JSON-LD ({field})", "date": dt})
+                        sig_type = "published" if field == "datePublished" else "modified"
+                        signals.append({"channel": f"JSON-LD ({field})", "date": dt, "type": sig_type})
                     except ValueError:
                         pass
 
     # 2. Meta tags
     meta_patterns = [
-        (r'<meta\s+property=["\']article:(?:modified_time|published_time)["\']\s+content=["\']([^"\']+)["\']', "OpenGraph (article)"),
-        (r'<meta\s+name=["\'](?:last-modified|publish-date|date)["\']\s+content=["\']([^"\']+)["\']', "Meta date")
+        (r'<meta\s+property=["\']article:modified_time["\']\s+content=["\']([^"\']+)["\']', "OpenGraph (article:modified_time)", "modified"),
+        (r'<meta\s+property=["\']article:published_time["\']\s+content=["\']([^"\']+)["\']', "OpenGraph (article:published_time)", "published"),
+        (r'<meta\s+name=["\']last-modified["\']\s+content=["\']([^"\']+)["\']', "Meta last-modified", "modified"),
+        (r'<meta\s+name=["\'](?:publish-date|date)["\']\s+content=["\']([^"\']+)["\']', "Meta publish-date", "published")
     ]
-    for pat, label in meta_patterns:
+    for pat, label, sig_type in meta_patterns:
         for match in re.findall(pat, html, re.I):
             try:
                 clean_match = match[:10]
                 dt = datetime.strptime(clean_match, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-                signals.append({"channel": label, "date": dt})
+                signals.append({"channel": label, "date": dt, "type": sig_type})
             except ValueError:
                 pass
 
@@ -44,7 +47,7 @@ def extract_temporal_signals(html: str, headers: dict, jsonld_blocks: list) -> l
         try:
             clean_tm = tm[:10]
             dt = datetime.strptime(clean_tm, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            signals.append({"channel": "DOM <time>", "date": dt})
+            signals.append({"channel": "DOM <time>", "date": dt, "type": "modified"})
         except ValueError:
             pass
 
@@ -56,11 +59,11 @@ def extract_temporal_signals(html: str, headers: dict, jsonld_blocks: list) -> l
             dt = email.utils.parsedate_to_datetime(last_mod)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
-            signals.append({"channel": "HTTP Last-Modified", "date": dt})
+            signals.append({"channel": "HTTP Last-Modified", "date": dt, "type": "modified"})
         except Exception:
             try:
                 dt = datetime.strptime(last_mod[:16], "%a, %d %b %Y").replace(tzinfo=timezone.utc)
-                signals.append({"channel": "HTTP Last-Modified", "date": dt})
+                signals.append({"channel": "HTTP Last-Modified", "date": dt, "type": "modified"})
             except Exception:
                 pass
 
@@ -78,7 +81,6 @@ def evaluate_freshness(html: str, headers: dict, jsonld_blocks: list) -> list:
 
     if signals:
         most_recent = max(s["date"] for s in signals)
-        oldest = min(s["date"] for s in signals)
         age_days = (now - most_recent).days
 
         # Deduplicate signals for clean reporting
@@ -89,7 +91,7 @@ def evaluate_freshness(html: str, headers: dict, jsonld_blocks: list) -> list:
             unique_channels[f"{ch} ({d_str})"] = s["date"]
         channels_summary = ", ".join(unique_channels.keys())
 
-        # Conjunctive staleness: if even the most recent timestamp is > 365 days old,
+        # 1. Conjunctive staleness: if even the most recent timestamp is > 365 days old,
         # then every single corroborated source confirms content age > 1 year.
         if age_days > 365:
             findings.append({
@@ -102,19 +104,47 @@ def evaluate_freshness(html: str, headers: dict, jsonld_blocks: list) -> list:
                     "priority": "medium"
                 }
             })
-        elif (most_recent - oldest).days > 180:
-            # Corroboration Conflict: Significant temporal drift between channels
-            drift_days = (most_recent - oldest).days
-            findings.append({
-                "id": "F-FRESH-007",
-                "title": "Temporal signal divergence across corroboration channels",
-                "severity": "medium",
-                "evidence": f"Conflicting temporal timestamps detected across channels ({channels_summary}). Temporal drift of {drift_days} days between sources causes citation depreciation in LLMs.",
-                "suggested_action": {
-                    "summary": "Synchronize Last-Modified HTTP response headers, OpenGraph metadata, and JSON-LD dateModified timestamps to prevent AI search engines from discounting temporal validity.",
-                    "priority": "medium"
-                }
-            })
+        else:
+            # 2. Corroboration Conflict: Significant temporal drift between modification channels
+            # Guard against false positive: datePublished being older than dateModified is normal and desirable
+            # (e.g. published 2019, updated 2026). Only compare modification-class signals against each other.
+            mod_signals = [s for s in signals if s.get("type") == "modified"]
+            pub_signals = [s for s in signals if s.get("type") == "published"]
+
+            mod_channels = {s["channel"]: s["date"] for s in mod_signals}
+            if len(mod_channels) >= 2:
+                mod_dates = list(mod_channels.values())
+                mod_newest = max(mod_dates)
+                mod_oldest = min(mod_dates)
+                drift_days = (mod_newest - mod_oldest).days
+                if drift_days > 180:
+                    mod_summary = ", ".join(f"{ch} ({dt.strftime('%Y-%m-%d')})" for ch, dt in mod_channels.items())
+                    findings.append({
+                        "id": "F-FRESH-007",
+                        "title": "Temporal signal divergence across corroboration channels",
+                        "severity": "medium",
+                        "evidence": f"Conflicting temporal timestamps detected across modification channels ({mod_summary}). Temporal drift of {drift_days} days between sources causes citation depreciation in LLMs.",
+                        "suggested_action": {
+                            "summary": "Synchronize Last-Modified HTTP response headers, OpenGraph metadata, and JSON-LD dateModified timestamps to prevent AI search engines from discounting temporal validity.",
+                            "priority": "medium"
+                        }
+                    })
+
+            # Inverted chronological sequence: datePublished is newer than dateModified
+            if pub_signals and mod_signals:
+                newest_pub = max(s["date"] for s in pub_signals)
+                oldest_mod = min(s["date"] for s in mod_signals)
+                if (newest_pub - oldest_mod).days > 30 and not any(f.get("id") == "F-FRESH-007" for f in findings):
+                    findings.append({
+                        "id": "F-FRESH-007",
+                        "title": "Temporal signal divergence across corroboration channels",
+                        "severity": "medium",
+                        "evidence": f"Inverted temporal timestamps: datePublished ({newest_pub.strftime('%Y-%m-%d')}) is newer than dateModified ({oldest_mod.strftime('%Y-%m-%d')}).",
+                        "suggested_action": {
+                            "summary": "Correct chronologically inverted datePublished and dateModified timestamps in markup and HTTP headers.",
+                            "priority": "medium"
+                        }
+                    })
     else:
         findings.append({
             "id": "F-FRESH-006",

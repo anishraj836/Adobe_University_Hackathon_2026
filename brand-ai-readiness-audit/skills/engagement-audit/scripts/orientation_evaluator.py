@@ -82,7 +82,18 @@ def evaluate_orientation(html: str) -> tuple[list, str]:
         desc_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', desc_text.lower()) if w not in stopwords}
         if h1_tokens and desc_tokens:
             common = h1_tokens.intersection(desc_tokens)
-            if not common and len(h1_tokens) >= 2 and len(desc_tokens) >= 5:
+            # Morphological stem matching (first 4 chars) for synonyms/derivatives (deploy/deployment, automate/automation)
+            h1_stems = {w[:4] for w in h1_tokens}
+            desc_stems = {w[:4] for w in desc_tokens}
+            stem_common = h1_stems.intersection(desc_stems)
+
+            # Context bridge: check if document <title> connects H1 and meta description
+            title_match = re.search(r'<title\b[^>]*>(.*?)</title>', html, re.I)
+            title_text = re.sub(r'<[^>]+>', '', title_match.group(1)).lower() if title_match else ""
+            title_tokens = {w for w in re.findall(r'\b[a-z]{4,}\b', title_text) if w not in stopwords}
+            bridged = bool(title_tokens and (h1_tokens.intersection(title_tokens) and desc_tokens.intersection(title_tokens)))
+
+            if not common and not stem_common and not bridged and len(h1_tokens) >= 2 and len(desc_tokens) >= 5:
                 findings.append({
                     "id": "F-ENGAGE-009",
                     "title": "Cognitive mismatch between primary <h1> and meta description",

@@ -200,17 +200,33 @@ def run_benchmark():
     zip_path = os.path.join(BASE_DIR, "../brand-ai-readiness-audit.zip")
     zip_size_kb = os.path.getsize(zip_path) / 1024.0 if os.path.exists(zip_path) else 0
 
+    tests_run = test_result.testsRun
+    test_failures = len(test_result.failures)
+    test_errors = len(test_result.errors)
+    tests_passed = tests_run - test_failures - test_errors
+    test_pct = (tests_passed / tests_run * 100.0) if tests_run > 0 else 0.0
+
+    total_fixtures = len(ground_truth_results)
+    fixtures_passed = sum(1 for g in ground_truth_results if g["status"] == "PASS")
+    fixture_pct = (fixtures_passed / total_fixtures * 100.0) if total_fixtures > 0 else 0.0
+
+    ssr_fixture = next((g for g in ground_truth_results if g["fixture"] == "modern_nextjs_ssr"), None)
+    ssr_status = "VERIFIED (Modern Next.js SSR Passed Cleanly)" if (ssr_fixture and ssr_fixture["status"] == "PASS") else "FAILED"
+
     print("\n" + "=" * 80)
     print(" FINAL BENCHMARK SCORECARD")
     print("=" * 80)
-    print(f"  Unit & Regression Tests:        {test_result.testsRun} / {test_result.testsRun} PASSED (100%)")
-    print("  Ground-Truth Accuracy:          5 / 5 FIXTURES PASSED (100%)")
-    print("  False-Positive Resistance:      VERIFIED (Modern Next.js SSR Passed Cleanly)")
-    print("  Handout Page 2 Schema Parity:   100% STRICT COMPLIANCE")
+    print(f"  Unit & Regression Tests:        {tests_passed} / {tests_run} PASSED ({test_pct:.0f}%)")
+    print(f"  Ground-Truth Accuracy:          {fixtures_passed} / {total_fixtures} FIXTURES PASSED ({fixture_pct:.0f}%)")
+    print(f"  False-Positive Resistance:      {ssr_status}")
+    print(f"  Handout Page 2 Schema Parity:   {'100% STRICT COMPLIANCE' if schema_passes else 'FAILED'}")
     print(f"  Total 5-Fixture Latency:        {total_mean:.2f} ms ({total_mean / 1000.0:.4f}s)")
     print(f"  Submission Bundle Size:         {zip_size_kb:.1f} KB (Ceiling: 50,000 KB)")
     print("  External Dependencies:          0 Required (Pure Standard Library Native)")
     print("=" * 80)
+
+    if test_failures > 0 or test_errors > 0 or fixtures_passed < total_fixtures or not schema_passes:
+        sys.exit(1)
 
 if __name__ == "__main__":
     run_benchmark()

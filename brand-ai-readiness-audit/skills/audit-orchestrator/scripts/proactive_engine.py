@@ -6,8 +6,20 @@ ONLY when triggered by concrete observed site evidence, avoiding blanket emissio
 Strictly adheres to Handout Page 2 schema floor.
 """
 
+import os
+import json
 import re
 from urllib.parse import urlparse
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_PATH = os.path.abspath(os.path.join(CURRENT_DIR, "../../freshness-corroboration/references/jsonld_templates.json"))
+JSONLD_TEMPLATES = {}
+if os.path.exists(TEMPLATES_PATH):
+    try:
+        with open(TEMPLATES_PATH, "r", encoding="utf-8") as f:
+            JSONLD_TEMPLATES = json.load(f)
+    except Exception:
+        pass
 
 def clean_tag(text: str) -> str:
     """Clean text from tags and excess whitespace."""
@@ -43,17 +55,24 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
     dom_hrefs = re.findall(r'<a\s+[^>]*href=["\']([^"\']+)["\']', html, re.I)
     doc_links = [h for h in dom_hrefs if any(k in h.lower() for k in ["/docs", "/doc", "/api", "/guide", "/developers", "/help", "/reference"])]
 
-    # 1. Conditioned Proactive Trigger: /llms.txt
-    # Condition: Site has documentation/API assets discovered, BUT no /llms.txt manifest exists
+    # 1. Conditioned Proactive Trigger: Markdown-First /llms.txt manifest
+    # Condition: Discovered doc/API routes exist, BUT site has no /llms.txt file
     if doc_links and not llms_txt:
-        sample_doc = doc_links[0] if doc_links[0].startswith("http") else f"{origin}{doc_links[0]}"
+        # Generate turnkey llms.txt snippet
+        doc_entries = []
+        for d in doc_links[:5]:
+            full_doc_url = d if d.startswith("http") else f"{origin.rstrip('/')}/{d.lstrip('/')}"
+            clean_title = d.strip("/").replace("/", " - ").replace("-", " ").title() or "Documentation"
+            doc_entries.append(f"- [{clean_title}]({full_doc_url}): Core developer and API documentation.")
+        
+        docs_block = "\n".join(doc_entries)
         llms_artifact = (
-            f"# {page_title} AI Context Manifest\n"
+            f"# {page_title}\n\n"
             f"> {meta_desc}\n\n"
-            f"## Canonical Resources\n"
-            f"- {origin}: Official Homepage\n"
-            f"- {sample_doc}: Developer & Product Documentation\n"
-            f"- {origin}/llms-full.txt: Full uncompressed documentation for frontier models\n"
+            f"## Documentation Endpoints\n\n"
+            f"{docs_block}\n\n"
+            f"## Optional\n\n"
+            f"- [{page_title} Full Index]({origin}/llms-full.txt): Complete unpaginated markdown documentation context.\n"
         )
         proactive.append({
             "id": "F-PROACT-001",
@@ -68,6 +87,21 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
                 "priority": "medium"
             }
         })
+    elif llms_txt:
+        # Validate existing /llms.txt conforms to standard structure
+        has_h1 = bool(re.search(r'^#\s+.+', llms_txt, re.MULTILINE))
+        has_links = bool(re.search(r'-\s+\[.+\]\(.+\)', llms_txt))
+        if not (has_h1 and has_links):
+            proactive.append({
+                "id": "F-PROACT-005",
+                "title": "[Proactive Opportunity] Enhance existing /llms.txt structure for frontier AI ingest",
+                "severity": "medium",
+                "evidence": "Observed /llms.txt file at origin root lacks recommended standard structure (H1 title or markdown link list).",
+                "suggested_action": {
+                    "summary": "Structure /llms.txt following the standard convention with an H1 page title, a blockquote summary (> ...), and a curated list of markdown links (- [Title](URL)) pointing to clean markdown or HTML documentation endpoints.",
+                    "priority": "medium"
+                }
+            })
 
     # 2. Conditioned Proactive Trigger: Conversational FAQPage JSON-LD
     # Condition: Page contains actual Q&A questions/FAQ in text, BUT lacks Schema.org FAQPage/QAPage
@@ -147,9 +181,9 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
             f'  "url": "{origin}",\n'
             f'  "description": "{meta_desc}",\n'
             f'  "sameAs": [\n'
-            f'    "https://www.linkedin.com/company/{brand_host.replace(".", "-")}",\n'
-            f'    "https://www.crunchbase.com/organization/{brand_host.replace(".", "-")}",\n'
-            f'    "https://github.com/{brand_host.replace(".", "-")}"\n'
+            f'    "https://www.linkedin.com/company/<YOUR_LINKEDIN_SLUG>",\n'
+            f'    "https://www.crunchbase.com/organization/<YOUR_CRUNCHBASE_SLUG>",\n'
+            f'    "https://github.com/<YOUR_GITHUB_ORG>"\n'
             f'  ]\n'
             f'}}\n'
             f'</script>'
@@ -161,7 +195,7 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
             "evidence": "Commercial product/pricing signals detected, but no Schema.org sameAs links ground the brand to external knowledge graph registries.",
             "suggested_action": {
                 "summary": (
-                    f"Anchor the brand identity across LLM parametric memory by embedding this Schema.org Organization template with populated sameAs URIs:\n\n"
+                    f"Anchor the brand identity across LLM parametric memory by embedding this Schema.org Organization template in your HTML <head> (replace `<YOUR_*_SLUG>` placeholder tokens with your verified registry URLs):\n\n"
                     f"```html\n{org_artifact}\n```"
                 ),
                 "priority": "medium"

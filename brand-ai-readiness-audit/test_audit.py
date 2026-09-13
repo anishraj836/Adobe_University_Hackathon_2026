@@ -17,12 +17,16 @@ sys.path.insert(0, os.path.join(BASE_DIR, "skills/crawl-render-audit/scripts"))
 sys.path.insert(0, os.path.join(BASE_DIR, "skills/freshness-corroboration/scripts"))
 sys.path.insert(0, os.path.join(BASE_DIR, "skills/engagement-audit/scripts"))
 
+import tempfile
+import shutil
+
 from run_audit import run_audit, build_markdown_report
 from schema_validator import validate_report_schema
 from proactive_engine import generate_proactive_actions
 from freshness_evaluator import evaluate_freshness
 from schema_evaluator import evaluate_schema
 from entity_resolver import evaluate_entity
+from audit_freshness import audit_freshness
 from audit_crawl import audit_crawl, parse_robots_records, is_bot_blocked, count_words
 from conversion_evaluator import evaluate_conversion, has_commercial_intent, check_primary_cta
 from quotability_evaluator import evaluate_quotability
@@ -954,6 +958,147 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertIn("## Executive Summary", md_text)
         self.assertIn("> This site suffers from severe architectural barriers", md_text)
         self.assertIn("- **Total Findings:** 3", md_text)
+
+    def test_34_temporal_divergence_publication_vs_modification_guard(self):
+        """Temporal discrimination guard: datePublished being older than dateModified is normal and desirable, while diverging modification channels or inverted timestamps trigger F-FRESH-007."""
+        # Case A: Well-maintained page published 2019 and updated 2026
+        well_maintained_html = '<script type="application/ld+json">{"@type":"Article","datePublished":"2019-01-10","dateModified":"2026-09-10"}</script>'
+        well_maintained_jsonld = [{"@type": "Article", "datePublished": "2019-01-10", "dateModified": "2026-09-10"}]
+        findings_clean = evaluate_freshness(well_maintained_html, {}, well_maintained_jsonld)
+        self.assertFalse(any(f["id"] == "F-FRESH-007" for f in findings_clean), "False positive: datePublished being older than dateModified was incorrectly flagged as divergence!")
+
+        # Case B: Conflicting modification channels (HTTP Last-Modified 2026 vs JSON-LD dateModified 2021)
+        conflicting_jsonld = [{"dateModified": "2021-01-10"}]
+        conflicting_headers = {"last-modified": "Mon, 01 Sep 2026 12:00:00 GMT"}
+        findings_divergent = evaluate_freshness("<html></html>", conflicting_headers, conflicting_jsonld)
+        self.assertTrue(any(f["id"] == "F-FRESH-007" for f in findings_divergent), "True positive missed: Conflicting modification channels were not flagged!")
+
+        # Case C: Inverted sequence (datePublished is newer than dateModified)
+        inverted_jsonld = [{"datePublished": "2026-09-01", "dateModified": "2021-01-10"}]
+        findings_inverted = evaluate_freshness("<html></html>", {}, inverted_jsonld)
+        self.assertTrue(any(f["id"] == "F-FRESH-007" for f in findings_inverted), "True positive missed: Inverted datePublished > dateModified was not flagged!")
+
+    def test_35_nested_div_hero_zone_exemption_guard(self):
+        """Parsing robustness guard: Hero zone exemption must handle nested wrapper/overlay divs without leaking corporate buzzwords into substantive prose."""
+        fluff_copy = "revolutionary innovative cutting-edge disruptive transformative world-class state-of-the-art paradigm-shifting synergistic"
+        nested_hero_html = f"""
+        <html><body>
+          <div class="hero">
+            <div class="hero-bg-overlay">
+              <div class="container">
+                <div class="row">
+                  <h1>Headline</h1>
+                  <p>{fluff_copy}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <main>
+            <p>{'The database engine maintains ACID transactions across all nodes with multi-version concurrency control. ' * 5}</p>
+          </main>
+        </body></html>
+        """
+        res = evaluate_filler(nested_hero_html)
+        self.assertFalse(res["flagged"], "False positive: Nested divs inside hero container caused buzzwords to leak into substantive analysis!")
+        self.assertEqual(res.get("fluff_count", 0), 0, "Fluff words from nested hero container should be completely stripped!")
+
+    def test_36_cross_page_schema_propagation_guard(self):
+        """Multi-page discovery guard: Authoritative sameAs entity signals on discovered subpages (e.g. /about) propagate downstream to entity resolver."""
+        bundle_subpage = {
+            "html": "<html><head><title>Acme Corp</title></head><body><h1>Welcome</h1><p>Leading cloud infrastructure provider.</p></body></html>",
+            "status": 200,
+            "headers": {},
+            "is_local": True,
+            "url": "file:///path/to/fixture",
+            "subpages": [
+                {
+                    "path": "/about",
+                    "status": 200,
+                    "html": """
+                    <html><head>
+                    <script type="application/ld+json">
+                    {
+                      "@context": "https://schema.org",
+                      "@type": "Organization",
+                      "name": "Acme Corp",
+                      "sameAs": [
+                        "https://www.linkedin.com/company/acme-corp",
+                        "https://en.wikipedia.org/wiki/Acme_Corp"
+                      ]
+                    }
+                    </script>
+                    </head><body><h1>About Acme</h1></body></html>
+                    """
+                }
+            ]
+        }
+        findings = audit_freshness(bundle_subpage)
+        # Should not flag missing sameAs links (F-FRESH-003) because /about declared authoritative sameAs
+        self.assertFalse(any(f["id"] == "F-FRESH-003" for f in findings), "False positive: sameAs links declared on /about subpage were not recognized downstream!")
+
+    def test_37_interstitial_overlay_friction_guard(self):
+        """User journey friction guard: Intrusive modal, newsletter-popup, or paywall overlays in initial DOM trigger F-ENGAGE-018."""
+        # Case A: Intrusive newsletter popup overlay on commercial site
+        popup_html = """
+        <html><body>
+          <div class="newsletter-popup" role="dialog" aria-modal="true">
+            <h2>Subscribe before you read</h2>
+            <button>Close</button>
+          </div>
+          <h1>Platform Overview</h1>
+          <a href="/pricing">Pricing</a>
+          <p>Enterprise SaaS solutions with automated workflow management.</p>
+        </body></html>
+        """
+        findings_popup = evaluate_conversion(popup_html)
+        self.assertTrue(any(f["id"] == "F-ENGAGE-018" for f in findings_popup), "Intrusive newsletter overlay must trigger F-ENGAGE-018!")
+
+        # Case B: Clean commercial page without overlay
+        clean_html = """
+        <html><body>
+          <h1>Platform Overview</h1>
+          <a href="/pricing">Pricing</a>
+          <a href="/signup">Sign Up</a>
+          <p>Enterprise SaaS solutions trusted by 500 teams with SOC-2 certification.</p>
+          <a href="/faq">FAQ</a>
+        </body></html>
+        """
+        findings_clean = evaluate_conversion(clean_html)
+        self.assertFalse(any(f["id"] == "F-ENGAGE-018" for f in findings_clean), "Clean page without overlays must not trigger F-ENGAGE-018!")
+
+    def test_38_thin_content_cross_skill_deduplication_guard(self):
+        """Report hygiene guard: Thin content on landing page is reported cleanly under F-ENGAGE-006 without double-counting as F-CRAWL-007."""
+        temp_dir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(temp_dir, "index.html"), "w", encoding="utf-8") as f:
+                # 40 words of substantive body prose with >800 bytes of HTML markup and navigation boilerplate
+                f.write("""
+                <!DOCTYPE html>
+                <html><head><title>Thin Enterprise Platform</title>
+                <style>body { font-family: sans-serif; margin: 0; } header { background: #333; color: white; }</style>
+                </head><body>
+                  <header><nav><a href="/">Home</a><a href="/about">About</a><a href="/pricing">Pricing</a><a href="/contact">Contact</a><a href="/docs">Docs</a><a href="/blog">Blog</a></nav></header>
+                  <main>
+                    <h1>Thin Landing Experience</h1>
+                    <p>We are an early stage startup providing automated cloud deployment tools for small engineering teams worldwide.</p>
+                  </main>
+                  <footer><p>&copy; 2026 Enterprise Corp. All rights reserved. Various terms of service, privacy policy clauses, and security compliance details apply here across multiple paragraphs of boilerplate legal declarations that take up significant markup payload volume.</p></footer>
+                </body></html>
+                """)
+            with open(os.path.join(temp_dir, "robots.txt"), "w", encoding="utf-8") as f:
+                f.write("User-agent: *\nAllow: /\n")
+
+            report = run_audit(temp_dir)
+            finding_titles = [f["title"] for f in report["findings"]]
+            # Should have the substantive thin content finding (F-ENGAGE-006)
+            has_engage_thin = any("thin landing experience" in t.lower() for t in finding_titles)
+            # Should NOT have the redundant low static HTML content volume finding (F-CRAWL-007)
+            has_crawl_thin = any("low static html content volume" in t.lower() for t in finding_titles)
+
+            self.assertTrue(has_engage_thin, "Must flag substantive thin landing experience")
+            self.assertFalse(has_crawl_thin, "Must deduplicate redundant raw static HTML content volume finding")
+        finally:
+            shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
     unittest.main()

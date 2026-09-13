@@ -32,6 +32,32 @@ TRAINING_CRAWLERS = [
 
 AI_CRAWLERS = CITATION_CRAWLERS + TRAINING_CRAWLERS
 
+# Synchronize with reference taxonomy file if available
+AI_CRAWLERS_PATH = os.path.join(CURRENT_DIR, "../references/ai_crawlers.json")
+if os.path.exists(AI_CRAWLERS_PATH):
+    try:
+        with open(AI_CRAWLERS_PATH, "r", encoding="utf-8") as f:
+            _crawler_data = json.load(f)
+            if "citation_crawlers" in _crawler_data:
+                CITATION_CRAWLERS = [c["name"].lower() if isinstance(c, dict) else str(c).lower() for c in _crawler_data["citation_crawlers"]]
+            if "training_crawlers" in _crawler_data:
+                TRAINING_CRAWLERS = [c["name"].lower() if isinstance(c, dict) else str(c).lower() for c in _crawler_data["training_crawlers"]]
+            AI_CRAWLERS = CITATION_CRAWLERS + TRAINING_CRAWLERS
+    except Exception:
+        pass
+
+# Synchronize SPA signatures if available
+SPA_PATH = os.path.join(CURRENT_DIR, "../references/spa_signatures.json")
+SPA_MOUNT_ROOTS = ["root", "app", "__next", "app-mount", "main-outlet"]
+if os.path.exists(SPA_PATH):
+    try:
+        with open(SPA_PATH, "r", encoding="utf-8") as f:
+            _spa_data = json.load(f)
+            if "mount_roots" in _spa_data:
+                SPA_MOUNT_ROOTS = _spa_data["mount_roots"]
+    except Exception:
+        pass
+
 def strip_tags(html: str) -> str:
     """Strip HTML tags, scripts, and styles to get raw visible text."""
     clean = re.sub(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', ' ', html, flags=re.IGNORECASE)
@@ -336,7 +362,8 @@ def audit_crawl(bundle: dict) -> list[dict]:
     visible_text = strip_tags(body_content)
     word_count = count_words(visible_text)
 
-    has_empty_root = bool(re.search(r'<div\s+id=["\'](root|app|__next)["\']\s*>\s*<\/div>', html, re.I))
+    mount_pattern = r'<div\s+id=["\'](' + '|'.join(re.escape(r) for r in SPA_MOUNT_ROOTS) + r')["\']\s*>\s*<\/div>'
+    has_empty_root = bool(re.search(mount_pattern, html, re.I))
 
     if has_empty_root and word_count < 50:
         data_island_name, data_island_bytes = detect_data_island(html)
@@ -376,7 +403,11 @@ def audit_crawl(bundle: dict) -> list[dict]:
 
     # 6. XML Sitemap Discoverability
     sitemap_xml = bundle.get("sitemap_xml", "")
-    has_sitemap_directive = "sitemap:" in robots_txt.lower()
+    has_sitemap_directive = any(
+        re.match(r'^\s*sitemap\s*:', line, re.I)
+        for line in robots_txt.splitlines()
+        if not line.strip().startswith('#')
+    )
     if not sitemap_xml and not has_sitemap_directive:
         findings.append({
             "id": "F-CRAWL-008",

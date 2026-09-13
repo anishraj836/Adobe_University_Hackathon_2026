@@ -190,4 +190,4 @@ def evaluate_schema(html: str, subpages: list = None) -> tuple[list, list, list]
                     })
                     break
 
-    return findings, root_blocks, types_found
+    return findings, all_blocks, types_found

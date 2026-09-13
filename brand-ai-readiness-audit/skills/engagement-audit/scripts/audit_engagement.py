@@ -25,7 +25,21 @@ from quotability_evaluator import evaluate_quotability
 from filler_evaluator import evaluate_filler, strip_chrome
 from conversion_evaluator import evaluate_conversion
 
+FRICTION_PATTERNS_PATH = os.path.join(CURRENT_DIR, "../references/friction_patterns.json")
 TRUST_KEYWORDS = ["privacy", "terms", "contact", "about", "security", "legal"]
+
+if os.path.exists(FRICTION_PATTERNS_PATH):
+    try:
+        with open(FRICTION_PATTERNS_PATH, "r", encoding="utf-8") as f:
+            f_data = json.load(f)
+            routes = f_data.get("trust_routes", [])
+            for r in routes:
+                term = r.strip("/").replace("-", " ")
+                for part in term.split():
+                    if part and part not in TRUST_KEYWORDS:
+                        TRUST_KEYWORDS.append(part)
+    except Exception:
+        pass
 
 def audit_engagement(bundle: dict) -> list:
     """Audit visitor orientation, referral retention, heading hierarchy, RAG quotability, and lexical density."""

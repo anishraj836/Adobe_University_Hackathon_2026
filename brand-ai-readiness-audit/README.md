@@ -175,7 +175,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 
 ### Running the Test & Benchmark Suites
 ```bash
-# Automated regression unit tests (33 tests in ~0.06s)
+# Automated regression unit tests (38 tests in ~0.08s)
 python3 test_audit.py
 
 # Full 5-step benchmark scorecard (latency percentiles, ground truth accuracy)
@@ -221,6 +221,11 @@ Every false-positive safeguard in this marketplace is backed by a bidirectional 
 | **Qualitative Schema Validation** | Treats any declared JSON-LD as complete, missing empty Product offerings or broken FAQPage structures. | Inspects internal node semantics: flags empty Product offerings (`F-FRESH-010`), broken FAQPage Q&A pairs (`F-FRESH-011`), and uncredited editorial articles (`F-FRESH-012`). | `test_31_qualitative_schema_validation` |
 | **Unencrypted HTTP Transport** | Ignores transport security, allowing unencrypted HTTP sites that AI indexers deprioritize to pass without warning. | Gated live protocol audit flags insecure HTTP with `F-CRAWL-009`, while safely exempting local sandbox/file fixtures. | `test_32_unencrypted_http_check_guard` |
 | **Executive Summary Synthesis** | Outputs raw numeric tally counts, providing non-technical leaders and judges zero contextual synthesis. | `build_markdown_report` dynamically generates a high-signal, 1-2 sentence plain-English strategic narrative above the numeric counts. | `test_33_markdown_executive_narrative_synthesis` |
+| **Publication vs Modification Guard** | Flags well-maintained evergreen articles (published 2019, updated 2026) as "temporal divergence" due to age difference. | Distinguishes publication dates from modification dates; divergence (`F-FRESH-007`) only compares modification-class channels against each other, eliminating false positives on updated content. | `test_34_temporal_divergence_publication_vs_modification_guard` |
+| **Nested Hero Container Parsing** | Leaks corporate buzzwords into substantive text analysis when hero sections contain nested wrapper/overlay `<div>`s due to regex non-greedy truncation. | Implements `SubstantiveProseExtractor` with `html.parser.HTMLParser` depth-tracking, isolating substantive prose regardless of arbitrary container nesting depth. | `test_35_nested_div_hero_zone_exemption_guard` |
+| **Cross-Page Entity Corroboration** | Ignores Schema.org structured data on secondary subpages (e.g. `/about`, `/contact`), falsely flagging brands that declare `sameAs` off the homepage. | Aggregates JSON-LD blocks across all crawled routes, propagating multi-page entity and date corroboration downstream to entity and freshness evaluators. | `test_36_cross_page_schema_propagation_guard` |
+| **Interstitial & Paywall Overlay Detection** | Ignores full-viewport modals and paywalls that block AI-referred visitors upon landing, causing immediate bounces. | Scans initial markup for intrusive gating/interstitial indicators (`modal`, `newsletter-popup`, `paywall`, `dialog-overlay`) and flags `F-ENGAGE-018`. | `test_37_interstitial_overlay_friction_guard` |
+| **Cross-Skill Thin Content Deduplication** | Emits two overlapping findings (`F-CRAWL-007` and `F-ENGAGE-006`) at two different severities for the same thin landing page. | Orchestrator deduplicates root causes: `F-ENGAGE-006` (substantive text density) supersedes `F-CRAWL-007` (raw static HTML volume), preventing double-counting. | `test_38_thin_content_cross_skill_deduplication_guard` |
 
 These tests demonstrate that the marketplace discriminates between genuine architectural barriers and intentional, standard web design patterns.
 
@@ -231,7 +236,7 @@ These tests demonstrate that the marketplace discriminates between genuine archi
 In strict adherence to the hackathon's < 5-minute runtime and zero-external-dependency constraints:
 - **Static DOM vs. Heavy Headless Browser**: Pure Client-Side Rendered (CSR) SPAs are flagged statically by detecting empty mount roots (`#root`, `#app`) and JS script bundles without running a 300MB Chromium/Playwright instance.
 - **Offline Knowledge Graph Posture**: External entity registries (Wikidata, Crunchbase) are audited via the brand's on-site knowledge graph bridge (`sameAs` links) rather than making outbound live SPARQL queries during offline evaluation.
-- **Conjunctive Freshness & Drift**: Content is only flagged as stale when all available signals agree ($\max(\text{dates}) < \text{now} - 365\text{ days}$). Conflicting signals (> 180 days drift between headers and markup) are flagged as temporal divergence (`F-FRESH-007`). See `skills/freshness-corroboration/references/freshness_design_decisions.md`.
+- **Conjunctive Freshness & Drift**: Content is only flagged as stale when all available signals agree ($\max(\text{dates}) < \text{now} - 365\text{ days}$). Conflicting signals (> 180 days drift between modification channels, e.g. HTTP headers vs JSON-LD dateModified) are flagged as temporal divergence (`F-FRESH-007`), while datePublished is preserved as an inception floor without false alarms on updated content. See `skills/freshness-corroboration/references/freshness_design_decisions.md`.
 - **Live Empirical Validation**: See `references/live_validation.md` for live audit transcripts on production websites (`example.com`, `httpbin.org`, `python.org`).
 
 ### 6.1 Architectural & Reasoning Decisions: Why Generalization Holds
