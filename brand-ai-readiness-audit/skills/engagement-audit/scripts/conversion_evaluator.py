@@ -21,12 +21,14 @@ DEFAULT_CTA_TERMS = [
     r"try\s+for\s+free", r"start\s+(?:your\s+)?free\s+trial", r"buy\s+now",
     r"contact\s+us", r"contact\s+support", r"contact\s+sales", r"schedule\s+a\s+demo",
     r"talk\s+to\s+sales", r"get\s+in\s+touch", r"order\s+now", r"claim\s+free",
-    r"create\s+account", r"join\s+(?:for\s+)?free", r"start\s+building", r"start\s+free"
+    r"create\s+account", r"join\s+(?:for\s+)?free", r"start\s+building", r"start\s+free",
+    r"add\s+to\s+cart", r"checkout", r"shop\s+now", r"shop\s+collection"
 ]
 
 DEFAULT_COMMERCIAL_ROUTES = [
     "/pricing", "/contact", "/demo", "/docs", "/documentation",
-    "/signup", "/sign-up", "/register", "/sales", "/buy"
+    "/signup", "/sign-up", "/register", "/sales", "/buy",
+    "/shop", "/cart", "/product", "/checkout"
 ]
 
 if os.path.exists(FRICTION_PATTERNS_PATH):
@@ -69,7 +71,8 @@ COMMERCIAL_SCHEMA_TYPES = {
 COMMERCIAL_KEYWORDS = [
     r"\bpricing\b", r"\bplans\b", r"\benterprise\b", r"\bsaas\b",
     r"\bsolutions\b", r"\bfree trial\b", r"\bget started\b", r"\bsubscription\b",
-    r"\bplatform\b", r"\bcustomers\b", r"\bdemo\b"
+    r"\bplatform\b", r"\bcustomers\b", r"\bdemo\b",
+    r"\badd to cart\b", r"\bcheckout\b", r"\bshop\b", r"\bcart\b"
 ]
 
 def has_commercial_intent(html: str) -> bool:
@@ -84,7 +87,7 @@ def has_commercial_intent(html: str) -> bool:
     dom_hrefs = re.findall(r'<a\s+[^>]*href=["\']([^"\']+)["\']', html, re.I)
     for href in dom_hrefs:
         lower_href = href.lower()
-        if any(cr in lower_href for cr in ["/pricing", "/product", "/plans", "/demo", "/signup", "/buy", "/checkout", "/solutions"]):
+        if any(cr in lower_href for cr in ["/pricing", "/product", "/plans", "/demo", "/signup", "/buy", "/checkout", "/solutions", "/shop", "/cart"]):
             return True
 
     # 3. >= 2 commercial keywords in text

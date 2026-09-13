@@ -72,12 +72,34 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
     # 2. Conditioned Proactive Trigger: Conversational FAQPage JSON-LD
     # Condition: Page contains actual Q&A questions/FAQ in text, BUT lacks Schema.org FAQPage/QAPage
     has_faq_schema = "faqpage" in html.lower() or "qapage" in html.lower()
-    # Find natural question sentences in text
-    question_matches = re.findall(r'(?:<h[2-4]\b[^>]*>|<p><strong>|<dt>)([^<]*\?)(?:<\/h[2-4]>|<\/strong><\/p>|<\/dt>)', html, re.I)
+    # Find natural question sentences in text and extract immediate sibling answer
+    question_matches = []
+    extracted_answer = None
+    sample_q = None
+
+    for q_match in re.finditer(r'(?:<h[2-4]\b[^>]*>|<p><strong>|<dt>)([^<]*\?)(?:<\/h[2-4]>|<\/strong><\/p>|<\/dt>)', html, re.I):
+        q_text = q_match.group(1).strip()
+        question_matches.append(q_text)
+        if sample_q is None:
+            sample_q = q_text
+            # Check immediate sibling element following this question
+            post_html = html[q_match.end():].lstrip()
+            sib_match = re.match(r'<(p|div|dd|ul)\b[^>]*>(.*?)<\/\1>', post_html, re.I | re.DOTALL)
+            if sib_match:
+                candidate_ans = clean_tag(sib_match.group(2))
+                if len(candidate_ans) >= 15 and not candidate_ans.startswith("<h"):
+                    extracted_answer = candidate_ans
+
     has_faq_keyword = bool(re.search(r'\b(frequently asked questions|faq|common questions)\b', html, re.I))
 
     if (question_matches or has_faq_keyword) and not has_faq_schema:
-        sample_q = question_matches[0].strip() if question_matches else f"What does {page_title} do?"
+        if not sample_q:
+            sample_q = f"What does {page_title} do?"
+
+        answer_text = extracted_answer if extracted_answer else meta_desc
+        answer_escaped = answer_text.replace('\\', '\\\\').replace('"', '\\"')
+        sample_q_escaped = sample_q.replace('\\', '\\\\').replace('"', '\\"')
+
         faq_artifact = (
             f'<script type="application/ld+json">\n'
             f'{{\n'
@@ -86,10 +108,10 @@ def generate_proactive_actions(bundle: dict, existing_finding_ids: set) -> list:
             f'  "mainEntity": [\n'
             f'    {{\n'
             f'      "@type": "Question",\n'
-            f'      "name": "{sample_q}",\n'
+            f'      "name": "{sample_q_escaped}",\n'
             f'      "acceptedAnswer": {{\n'
             f'        "@type": "Answer",\n'
-            f'        "text": "{meta_desc}"\n'
+            f'        "text": "{answer_escaped}"\n'
             f'      }}\n'
             f'    }}\n'
             f'  ]\n'

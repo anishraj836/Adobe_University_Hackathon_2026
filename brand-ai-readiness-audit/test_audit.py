@@ -23,7 +23,7 @@ from proactive_engine import generate_proactive_actions
 from freshness_evaluator import evaluate_freshness, extract_temporal_signals
 from entity_resolver import evaluate_entity
 from audit_crawl import audit_crawl, parse_robots_records, is_bot_blocked
-from conversion_evaluator import evaluate_conversion
+from conversion_evaluator import evaluate_conversion, has_commercial_intent
 from quotability_evaluator import evaluate_quotability
 from filler_evaluator import evaluate_filler
 
@@ -570,6 +570,80 @@ class TestBrandAIReadinessAudit(unittest.TestCase):
         self.assertGreaterEqual(res["fluff_count"], 1, "Expected at least 1 fluff word detected")
         self.assertLess(res["fluff_count"], 5, "Fluff count should be below the 5-hit threshold floor")
         self.assertEqual(res["quant_matches"], 0, "Expected 0 quantified metrics to test the unquantified technical prose guard")
+
+    def test_23_faq_sibling_answer_extraction_guard(self):
+        """FAQ generation: Extract sibling element text for acceptedAnswer; fall back to meta_desc when missing."""
+        # Case A: Sibling <p> element exists immediately after question heading
+        bundle_sibling = {
+            "html": (
+                "<!DOCTYPE html><html><head><title>Cloud Service SLA</title>"
+                "<meta name='description' content='Default fallback description for Cloud Service.'></head>"
+                "<body>"
+                "<h2>What is our SLA?</h2>"
+                "<p>Our platform guarantees 99.99% multi-region uptime.</p>"
+                "</body></html>"
+            ),
+            "url": "https://example.com"
+        }
+        proactive_sibling = generate_proactive_actions(bundle_sibling, set())
+        faq_finding = next((p for p in proactive_sibling if p["id"] == "F-PROACT-002"), None)
+        self.assertIsNotNone(faq_finding, "Expected F-PROACT-002 finding for Q&A content")
+        faq_summary = faq_finding["suggested_action"]["summary"]
+        self.assertIn("99.99% multi-region uptime", faq_summary, "FAQPage JSON-LD must contain extracted sibling answer")
+        self.assertNotIn("Default fallback description", faq_summary, "FAQPage JSON-LD should not use meta description when sibling text is present")
+
+        # Case B: No sibling answer element (followed immediately by another heading)
+        bundle_fallback = {
+            "html": (
+                "<!DOCTYPE html><html><head><title>Cloud Service SLA</title>"
+                "<meta name='description' content='Default fallback description for Cloud Service.'></head>"
+                "<body>"
+                "<h2>What is our SLA?</h2>"
+                "<h3>Next Heading</h3>"
+                "</body></html>"
+            ),
+            "url": "https://example.com"
+        }
+        proactive_fallback = generate_proactive_actions(bundle_fallback, set())
+        faq_fallback = next((p for p in proactive_fallback if p["id"] == "F-PROACT-002"), None)
+        self.assertIsNotNone(faq_fallback, "Expected F-PROACT-002 finding for Q&A content")
+        faq_fb_summary = faq_fallback["suggested_action"]["summary"]
+        self.assertIn("Default fallback description for Cloud Service.", faq_fb_summary, "FAQPage JSON-LD must fall back to meta description when sibling element is absent")
+
+    def test_24_ecommerce_cta_recognition_guard(self):
+        """E-commerce CTA recognition: 'Add to Cart' button and /shop route satisfy commercial intent without missing-CTA flag."""
+        # Case A: E-commerce page with <button>Add to Cart</button> and <a href="/shop">
+        ecom_html = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Artisan Store</title></head>
+        <body>
+          <h1>Handmade Leather Boots</h1>
+          <p>Durable handcrafted footwear crafted from full grain leather.</p>
+          <a href="/shop">Browse Store</a>
+          <button>Add to Cart</button>
+        </body>
+        </html>
+        """
+        self.assertTrue(has_commercial_intent(ecom_html), "Expected has_commercial_intent to recognize e-commerce routes/terms")
+        ecom_findings = evaluate_conversion(ecom_html)
+        self.assertFalse(any(f["id"] == "F-ENGAGE-011" for f in ecom_findings), "E-commerce page with 'Add to Cart' button falsely flagged for missing CTA (F-ENGAGE-011)!")
+
+        # Case B: Commercial page with SaaS copy and /pricing route but 0 CTA buttons
+        saas_no_cta = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Enterprise Cloud</title></head>
+        <body>
+          <h1>Enterprise Cloud Platform</h1>
+          <p>Scalable cloud infrastructure delivering subscription solutions with guaranteed SLA.</p>
+          <a href="/pricing">View Pricing Plans</a>
+        </body>
+        </html>
+        """
+        self.assertTrue(has_commercial_intent(saas_no_cta), "Expected has_commercial_intent to be True for commercial SaaS copy")
+        saas_findings = evaluate_conversion(saas_no_cta)
+        self.assertTrue(any(f["id"] == "F-ENGAGE-011" for f in saas_findings), "Commercial SaaS page lacking CTA must trigger F-ENGAGE-011")
 
 if __name__ == "__main__":
     unittest.main()

@@ -146,7 +146,7 @@ python3 skills/engagement-audit/scripts/audit_engagement.py https://example.com
 
 ### Running the Test & Benchmark Suites
 ```bash
-# Automated regression unit tests (22 tests in ~0.03s)
+# Automated regression unit tests (24 tests in ~0.03s)
 python3 test_audit.py
 
 # Full 5-step benchmark scorecard (latency percentiles, ground truth accuracy)
@@ -181,6 +181,8 @@ Every false-positive safeguard in this marketplace is backed by a bidirectional 
 | **RFC 9309 Path-Scoped Disallows** | Either assumes any `Disallow:` blocks the bot, or only checks for root `Disallow: /`. | Respects RFC 9309 semantics: empty `Disallow:` is permitted, while path-scoped rules (`Disallow: /private/`) are flagged as partial blocks. | `test_20_path_scoped_robots_disallow_guard` |
 | **CSR Inline Data-Island Downgrade** | Flags all thin-prose mount roots as critical barriers even when rich JSON state is serialized inline. | Detects `__NEXT_DATA__`, Nuxt state, and JSON blocks; downgrades finding to `medium` and identifies data payload byte size. | `test_21_csr_data_island_severity_downgrade_guard` |
 | **Technical Prose Fluff Immunity** | Over-penalizes legitimate technical prose using literal words like "seamless" without quantified metrics. | Compound gate (`words >= 80`, `fluff >= 5`, `ratio > 3.5%`) prevents false positives on substantive engineering text. | `test_22_technical_prose_fluff_lexicon_no_false_positive` |
+| **FAQ Sibling Answer Extraction** | Generates FAQ schema with generic page-level meta descriptions instead of the actual on-page answers. | Dynamically parses immediate sibling DOM elements (`<p>`, `<div>`, `<dd>`, `<ul>`) following question headings to extract substantive answers. | `test_23_faq_sibling_answer_extraction_guard` |
+| **E-commerce CTA Recognition** | Only recognizes B2B/SaaS CTAs ("Book Demo", "Start Trial"), flagging e-commerce storefronts for missing CTAs. | Broadened transactional lexicon recognizes "Add to Cart", "Checkout", "Shop Now", and commerce routes (`/shop`, `/cart`). | `test_24_ecommerce_cta_recognition_guard` |
 
 These tests demonstrate that the marketplace discriminates between genuine architectural barriers and intentional, standard web design patterns.
 

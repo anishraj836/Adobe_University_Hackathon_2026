@@ -23,7 +23,11 @@
     "/documentation",
     "/signup",
     "/register",
-    "/sales"
+    "/sales",
+    "/shop",
+    "/cart",
+    "/product",
+    "/checkout"
   ],
   "cta_patterns": [
     "get started",
@@ -35,7 +39,11 @@
     "buy now",
     "contact us",
     "contact support",
-    "schedule a demo"
+    "schedule a demo",
+    "add to cart",
+    "checkout",
+    "shop now",
+    "shop collection"
   ],
   "substantive_word_threshold": 150
 }
